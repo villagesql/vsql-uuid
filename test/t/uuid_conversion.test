@@ -1,0 +1,58 @@
+# Setup: Copy VEB to veb_dir if VSQL_UUID_VEB is set, then install extension
+--let $veb_dest = `SELECT CONCAT(@@veb_dir, '/vsql_uuid.veb')`
+if ($VSQL_UUID_VEB) {
+  --error 0,1
+  --remove_file $veb_dest
+  --copy_file $VSQL_UUID_VEB $veb_dest
+}
+INSTALL EXTENSION vsql_uuid;
+
+--echo #
+--echo # Test UUID binary conversion functions
+--echo #
+
+# Test uuid_to_binary and binary_to_uuid roundtrip with known UUIDs
+SET @test_uuid = '550e8400-e29b-41d4-a716-446655440000';
+SET @binary_uuid = vsql_uuid.uuid_to_binary(@test_uuid);
+SELECT vsql_uuid.binary_to_uuid(@binary_uuid) = @test_uuid AS roundtrip_success;
+
+# Test multiple known UUIDs
+SET @uuid1 = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+SET @uuid2 = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+SET @uuid3 = '00000000-0000-0000-0000-000000000000';
+SET @uuid4 = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+
+SELECT vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@uuid1)) = @uuid1 AS test1_roundtrip;
+SELECT vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@uuid2)) = @uuid2 AS test2_roundtrip;
+SELECT vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@uuid3)) = @uuid3 AS test3_roundtrip;
+SELECT vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@uuid4)) = @uuid4 AS test4_roundtrip;
+
+# Test case sensitivity handling
+SET @upper_uuid = '550E8400-E29B-41D4-A716-446655440000';
+SET @lower_uuid = '550e8400-e29b-41d4-a716-446655440000';
+SELECT vsql_uuid.uuid_to_binary(@upper_uuid) = vsql_uuid.uuid_to_binary(@lower_uuid) AS case_insensitive;
+SELECT LOWER(vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@upper_uuid))) = @lower_uuid AS output_lowercase;
+
+# Test invalid input handling
+SELECT vsql_uuid.uuid_to_binary('invalid-uuid') IS NULL AS invalid_to_binary;
+SELECT vsql_uuid.uuid_to_binary('') IS NULL AS empty_to_binary;
+SELECT vsql_uuid.uuid_to_binary(NULL) IS NULL AS null_to_binary;
+
+--error ER_WRONG_VALUE
+SELECT vsql_uuid.binary_to_uuid('invalid') IS NULL AS invalid_from_binary;
+--error ER_WRONG_VALUE
+SELECT vsql_uuid.binary_to_uuid('') IS NULL AS empty_from_binary;
+--error ER_VILLAGESQL_GENERIC_ERROR
+SELECT vsql_uuid.binary_to_uuid(NULL) IS NULL AS null_from_binary;
+
+# Test with wrong binary length
+--error ER_WRONG_VALUE
+SELECT vsql_uuid.binary_to_uuid('tooshort') IS NULL AS short_binary;
+--error ER_WRONG_VALUE
+SELECT vsql_uuid.binary_to_uuid('thisistoolongtobeauuid') IS NULL AS long_binary;
+
+# Release variables of this type
+SET @binary_uuid = NULL;
+
+# Cleanup
+UNINSTALL EXTENSION vsql_uuid;

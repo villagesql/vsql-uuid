@@ -1,0 +1,148 @@
+INSTALL EXTENSION vsql_uuid;
+#
+# Test UUID type functionality
+#
+CREATE TEMPORARY TABLE uuid_test (
+id INT AUTO_INCREMENT PRIMARY KEY,
+uuid_col UUID,
+name VARCHAR(50)
+);
+INSERT INTO uuid_test (uuid_col, name) VALUES
+('550e8400-e29b-41d4-a716-446655440000', 'lowercase'),
+('6BA7B810-9DAD-11D1-80B4-00C04FD430C8', 'uppercase'),
+('f47ac10b-58CC-4372-A567-0e02b2c3d479', 'mixed_case'),
+('00000000-0000-0000-0000-000000000000', 'nil_uuid'),
+('ffffffff-ffff-ffff-ffff-ffffffffffff', 'max_uuid');
+SELECT uuid_col, name FROM uuid_test ORDER BY id;
+uuid_col	name
+550e8400-e29b-41d4-a716-446655440000	lowercase
+6ba7b810-9dad-11d1-80b4-00c04fd430c8	uppercase
+f47ac10b-58cc-4372-a567-0e02b2c3d479	mixed_case
+00000000-0000-0000-0000-000000000000	nil_uuid
+ffffffff-ffff-ffff-ffff-ffffffffffff	max_uuid
+SELECT uuid_col, name FROM uuid_test ORDER BY uuid_col;
+uuid_col	name
+00000000-0000-0000-0000-000000000000	nil_uuid
+550e8400-e29b-41d4-a716-446655440000	lowercase
+6ba7b810-9dad-11d1-80b4-00c04fd430c8	uppercase
+f47ac10b-58cc-4372-a567-0e02b2c3d479	mixed_case
+ffffffff-ffff-ffff-ffff-ffffffffffff	max_uuid
+SELECT COUNT(*) AS exact_match FROM uuid_test WHERE uuid_col = '550e8400-e29b-41d4-a716-446655440000';
+exact_match
+1
+SELECT COUNT(*) AS case_insensitive FROM uuid_test WHERE uuid_col = '550E8400-E29B-41D4-A716-446655440000';
+case_insensitive
+1
+SET @test_uuid = '550e8400-e29b-41d4-a716-446655440000';
+INSERT INTO uuid_test (uuid_col, name) VALUES
+(vsql_uuid.uuid_to_binary(vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@test_uuid))),
+'roundtrip_conversion');
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000') = 0 AS compare_equal;
+compare_equal
+1
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000') > 0 AS compare_greater;
+compare_greater
+1
+INSERT INTO uuid_test (uuid_col, name) VALUES
+(vsql_uuid.uuid_generate_v3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v3_generated'),
+(vsql_uuid.uuid_generate_v5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v5_generated');
+INSERT INTO uuid_test (uuid_col, name) VALUES (NULL, 'null_test');
+SELECT uuid_col IS NULL AS is_null, name FROM uuid_test WHERE name = 'null_test';
+is_null	name
+1	null_test
+INSERT INTO uuid_test (uuid_col, name) VALUES ('invalid-uuid-format', 'invalid_format');
+ERROR HY000: Incorrect uuid value: 'invalid-uuid-format' for column 'uuid_col' at row 1
+INSERT INTO uuid_test (uuid_col, name) VALUES ('', 'empty_string');
+ERROR HY000: Incorrect uuid value: '' for column 'uuid_col' at row 1
+SELECT COUNT(*) AS count_between FROM uuid_test
+WHERE uuid_col BETWEEN '00000000-0000-0000-0000-000000000000' AND 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+count_between
+8
+SELECT name FROM uuid_test WHERE uuid_col = '550e8400-e29b-41d4-a716-446655440000' ORDER BY name;
+name
+lowercase
+roundtrip_conversion
+SELECT name FROM uuid_test WHERE uuid_col != '550e8400-e29b-41d4-a716-446655440000' AND uuid_col IS NOT NULL ORDER BY name;
+name
+max_uuid
+mixed_case
+nil_uuid
+uppercase
+v3_generated
+v5_generated
+SELECT name FROM uuid_test WHERE uuid_col > '550e8400-e29b-41d4-a716-446655440000' ORDER BY name;
+name
+max_uuid
+mixed_case
+uppercase
+SELECT name FROM uuid_test WHERE uuid_col < '550e8400-e29b-41d4-a716-446655440000' ORDER BY name;
+name
+nil_uuid
+v3_generated
+v5_generated
+SELECT uuid_col, COUNT(*) AS count FROM uuid_test WHERE uuid_col IS NOT NULL GROUP BY uuid_col ORDER BY uuid_col;
+uuid_col	count
+00000000-0000-0000-0000-000000000000	1
+45a113ac-c7f2-30b0-90a5-a399ab912716	1
+4be0643f-1d98-573b-97cd-ca98a65347dd	1
+550e8400-e29b-41d4-a716-446655440000	2
+6ba7b810-9dad-11d1-80b4-00c04fd430c8	1
+f47ac10b-58cc-4372-a567-0e02b2c3d479	1
+ffffffff-ffff-ffff-ffff-ffffffffffff	1
+SELECT DISTINCT uuid_col FROM uuid_test WHERE uuid_col IS NOT NULL ORDER BY uuid_col;
+uuid_col
+00000000-0000-0000-0000-000000000000
+45a113ac-c7f2-30b0-90a5-a399ab912716
+4be0643f-1d98-573b-97cd-ca98a65347dd
+550e8400-e29b-41d4-a716-446655440000
+6ba7b810-9dad-11d1-80b4-00c04fd430c8
+f47ac10b-58cc-4372-a567-0e02b2c3d479
+ffffffff-ffff-ffff-ffff-ffffffffffff
+CREATE TEMPORARY TABLE uuid_lookup (
+uuid_key UUID,
+description VARCHAR(100)
+);
+INSERT INTO uuid_lookup (uuid_key, description) VALUES
+('550e8400-e29b-41d4-a716-446655440000', 'Primary test UUID'),
+('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'Secondary test UUID');
+SELECT u.uuid_col, u.name, l.description
+FROM uuid_test u
+LEFT JOIN uuid_lookup l ON u.uuid_col = l.uuid_key
+WHERE u.uuid_col IS NOT NULL
+ORDER BY u.uuid_col;
+uuid_col	name	description
+00000000-0000-0000-0000-000000000000	nil_uuid	NULL
+45a113ac-c7f2-30b0-90a5-a399ab912716	v3_generated	NULL
+4be0643f-1d98-573b-97cd-ca98a65347dd	v5_generated	NULL
+550e8400-e29b-41d4-a716-446655440000	lowercase	Primary test UUID
+550e8400-e29b-41d4-a716-446655440000	roundtrip_conversion	Primary test UUID
+6ba7b810-9dad-11d1-80b4-00c04fd430c8	uppercase	Secondary test UUID
+f47ac10b-58cc-4372-a567-0e02b2c3d479	mixed_case	NULL
+ffffffff-ffff-ffff-ffff-ffffffffffff	max_uuid	NULL
+DROP TABLE uuid_lookup;
+#
+# Test UUID generation functions (non-deterministic)
+#
+INSERT INTO uuid_test (uuid_col, name) VALUES
+(vsql_uuid.uuid_generate(), 'generated_v4'),
+(vsql_uuid.uuid_generate_v1(), 'generated_v1'),
+(vsql_uuid.uuid_generate_v1mc(), 'generated_v1mc'),
+(vsql_uuid.uuid_generate_v4(), 'generated_v4_explicit');
+SELECT COUNT(*) AS generated_count FROM uuid_test WHERE name LIKE 'generated%';
+generated_count
+4
+SELECT name FROM uuid_test WHERE name LIKE 'generated%' ORDER BY name;
+name
+generated_v1
+generated_v1mc
+generated_v4
+generated_v4_explicit
+SELECT vsql_uuid.uuid_is_valid(vsql_uuid.binary_to_uuid(uuid_col)) AS is_valid, name
+FROM uuid_test WHERE name LIKE 'generated%' ORDER BY name;
+is_valid	name
+1	generated_v1
+1	generated_v1mc
+1	generated_v4
+1	generated_v4_explicit
+DROP TABLE uuid_test;
+UNINSTALL EXTENSION vsql_uuid;

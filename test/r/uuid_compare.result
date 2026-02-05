@@ -1,0 +1,44 @@
+INSTALL EXTENSION vsql_uuid;
+#
+# Test UUID comparison functions
+#
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000') AS identical_compare;
+identical_compare
+0
+SELECT vsql_uuid.uuid_compare('00000000-0000-0000-0000-000000000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff') AS min_max_compare;
+min_max_compare
+-1
+SELECT vsql_uuid.uuid_compare('ffffffff-ffff-ffff-ffff-ffffffffffff', '00000000-0000-0000-0000-000000000000') AS max_min_compare;
+max_min_compare
+1
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '6ba7b810-9dad-11d1-80b4-00c04fd430c8') AS uuid1_uuid2_compare;
+uuid1_uuid2_compare
+-1
+SELECT vsql_uuid.uuid_compare('6ba7b810-9dad-11d1-80b4-00c04fd430c8', '550e8400-e29b-41d4-a716-446655440000') AS uuid2_uuid1_compare;
+uuid2_uuid1_compare
+1
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '550E8400-E29B-41D4-A716-446655440000') AS case_insensitive_compare;
+case_insensitive_compare
+0
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440001') AS sequential_compare;
+sequential_compare
+-1
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440000') AS reverse_sequential_compare;
+reverse_sequential_compare
+1
+SELECT vsql_uuid.uuid_compare('invalid-uuid', '550e8400-e29b-41d4-a716-446655440000') IS NULL AS invalid_first;
+invalid_first
+0
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', 'invalid-uuid') IS NULL AS invalid_second;
+invalid_second
+0
+SELECT vsql_uuid.uuid_compare('invalid-uuid', 'also-invalid') IS NULL AS both_invalid;
+both_invalid
+0
+SELECT vsql_uuid.uuid_compare(NULL, '550e8400-e29b-41d4-a716-446655440000') IS NULL AS null_first;
+null_first
+1
+SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', NULL) IS NULL AS null_second;
+null_second
+1
+UNINSTALL EXTENSION vsql_uuid;

@@ -1,0 +1,7 @@
+{
+  "name": "vsql_uuid",
+  "version": "0.0.1",
+  "description": "UUID type and generation functions for VillageSQL",
+  "author": "VillageSQL Community",
+  "license": "GPL-2.0"
+}
