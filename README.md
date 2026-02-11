@@ -21,6 +21,8 @@ A comprehensive UUID extension for VillageSQL Server that adds UUID generation, 
 - C++17 compatible compiler
 - OpenSSL development libraries (for cryptographic hash functions in v3/v5 UUID generation)
 
+📚 **Full Documentation**: Visit [villagesql.com/docs](https://villagesql.com/docs) for comprehensive guides on building extensions, architecture details, and more.
+
 #### Build Instructions
 1. Clone the repository:
    ```bash
@@ -29,17 +31,26 @@ A comprehensive UUID extension for VillageSQL Server that adds UUID generation, 
    ```
 
 2. Configure CMake with required paths:
+
+   **Linux:**
    ```bash
    mkdir -p build
    cd build
-   cmake .. -DVillageSQL_BUILD_DIR=/path/to/villagesql/build
+   cmake .. -DVillageSQL_BUILD_DIR=$HOME/build/villagesql
+   ```
+
+   **macOS:**
+   ```bash
+   mkdir -p build
+   cd build
+   cmake .. -DVillageSQL_BUILD_DIR=~/build/villagesql
    ```
 
    **Note**: `VillageSQL_BUILD_DIR` should point to your VillageSQL build directory.
 
 3. Build the extension:
    ```bash
-   make
+   make -j $(($(getconf _NPROCESSORS_ONLN) - 2))
    ```
 
    This creates the `vsql_uuid.veb` package in the build directory.
@@ -54,41 +65,41 @@ A comprehensive UUID extension for VillageSQL Server that adds UUID generation, 
 
 ## Usage
 
-After installation, the extension provides the following functions:
+After installation, the extension provides the following functions. Functions can be called with or without the extension prefix:
 
 ### UUID Generation
 ```sql
 -- Generate UUID v4 (random)
-SELECT vsql_uuid.uuid_generate_v4();
+SELECT uuid_generate_v4();
 -- Result: 550e8400-e29b-41d4-a716-446655440000
 
 -- Generate UUID v1 (time-based)
-SELECT vsql_uuid.uuid_generate_v1();
+SELECT uuid_generate_v1();
 
 -- Generate UUID v1 with random MAC (multicast)
-SELECT vsql_uuid.uuid_generate_v1mc();
+SELECT uuid_generate_v1mc();
 
 -- Generate UUID v3 (name-based, MD5)
-SELECT vsql_uuid.uuid_generate_v3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
+SELECT uuid_generate_v3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
 
 -- Generate UUID v5 (name-based, SHA1)
-SELECT vsql_uuid.uuid_generate_v5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
+SELECT uuid_generate_v5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
 ```
 
 ### UUID Validation and Conversion
 ```sql
 -- Validate UUID format
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-446655440000'); -- Returns 1
+SELECT uuid_is_valid('550e8400-e29b-41d4-a716-446655440000'); -- Returns 1
 
 -- Convert UUID to binary
-SELECT vsql_uuid.uuid_to_binary('550e8400-e29b-41d4-a716-446655440000');
+SELECT uuid_to_binary('550e8400-e29b-41d4-a716-446655440000');
 
 -- Convert binary to UUID string
-SELECT vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary('550e8400-e29b-41d4-a716-446655440000'));
+SELECT binary_to_uuid(uuid_to_binary('550e8400-e29b-41d4-a716-446655440000'));
 
 -- Compare UUIDs
-SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000',
-                               '6ba7b810-9dad-11d1-80b4-00c04fd430c8'); -- Returns -1, 0, or 1
+SELECT uuid_compare('550e8400-e29b-41d4-a716-446655440000',
+                    '6ba7b810-9dad-11d1-80b4-00c04fd430c8'); -- Returns -1, 0, or 1
 ```
 
 ### UUID Type
@@ -101,7 +112,7 @@ CREATE TABLE users (
 );
 
 -- Insert with generated UUID
-INSERT INTO users VALUES (vsql_uuid.uuid_generate_v4(), 'John Doe');
+INSERT INTO users VALUES (uuid_generate_v4(), 'John Doe');
 ```
 
 ## Testing
@@ -114,8 +125,18 @@ The extension includes comprehensive tests using the MySQL Test Runner (MTR) fra
 
 This method assumes you have successfully run `make install` to install the VEB to your veb_dir.
 
+**Linux:**
 ```bash
-cd ~/build/mysql-test
+cd $HOME/build/villagesql/mysql-test
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+
+# Run individual test
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test uuid_basic
+```
+
+**macOS:**
+```bash
+cd ~/build/villagesql/mysql-test
 perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
 
 # Run individual test
@@ -126,8 +147,16 @@ perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test uuid_basic
 
 Use this to test a specific VEB build without installing it first:
 
+**Linux:**
 ```bash
-cd ~/build/mysql-test
+cd $HOME/build/villagesql/mysql-test
+VSQL_UUID_VEB=/path/to/vsql-uuid/build/vsql_uuid.veb \
+  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+```
+
+**macOS:**
+```bash
+cd ~/build/villagesql/mysql-test
 VSQL_UUID_VEB=/path/to/vsql-uuid/build/vsql_uuid.veb \
   perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
 ```
