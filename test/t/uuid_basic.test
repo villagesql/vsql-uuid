@@ -8,30 +8,60 @@ if ($VSQL_UUID_VEB) {
 INSTALL EXTENSION vsql_uuid;
 
 --echo #
---echo # Test basic UUID generation and validation functions
+--echo # Test UUID_VERSION function
 --echo #
 
-# Test uuid_generate function exists and returns proper length
-#SELECT LENGTH(vsql.binary_to_uuid(vsql.vsql_uuid.uuid_generate())) = 36 AS uuid_proper_length;
+# Test UUID_VERSION with known v1 UUID (DNS namespace)
+SELECT UUID_VERSION('6ba7b810-9dad-11d1-80b4-00c04fd430c8') AS version_v1;
 
-# Test uuid_is_valid function with valid UUIDs
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-446655440000') AS valid_uuid;
-SELECT vsql_uuid.uuid_is_valid('6ba7b810-9dad-11d1-80b4-00c04fd430c8') AS valid_uuid2;
-SELECT vsql_uuid.uuid_is_valid('f47ac10b-58cc-4372-a567-0e02b2c3d479') AS valid_uuid3;
+# Test UUID_VERSION with known v3 UUID
+SELECT UUID_VERSION('45a113ac-c7f2-30b0-90a5-a399ab912716') AS version_v3;
 
-# Test uuid_is_valid with invalid formats
-SELECT vsql_uuid.uuid_is_valid('invalid-uuid') AS invalid_format;
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-44665544000') AS too_short;
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-4466554400000') AS too_long;
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-44665544000g') AS invalid_char;
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-44665544000G') AS invalid_upper_char;
-SELECT vsql_uuid.uuid_is_valid('550e840x-e29b-41d4-a716-446655440000') AS invalid_char_middle;
-SELECT vsql_uuid.uuid_is_valid('') AS empty_string;
-SELECT vsql_uuid.uuid_is_valid(NULL) AS null_value;
+# Test UUID_VERSION with known v4 UUID
+SELECT UUID_VERSION('550e8400-e29b-41d4-a716-446655440000') AS version_v4;
 
-# Test case sensitivity
-SELECT vsql_uuid.uuid_is_valid('550E8400-E29B-41D4-A716-446655440000') AS uppercase_valid;
-SELECT vsql_uuid.uuid_is_valid('550e8400-E29B-41d4-A716-446655440000') AS mixed_case_valid;
+# Test UUID_VERSION with known v5 UUID
+SELECT UUID_VERSION('4be0643f-1d98-573b-97cd-ca98a65347dd') AS version_v5;
+
+# Test UUID_VERSION with generated v6 UUID
+SET @v6_uuid = UUID_V6();
+SELECT UUID_VERSION(@v6_uuid) AS version_v6;
+
+# Test UUID_VERSION with generated v7 UUID
+SET @v7_uuid = UUID_V7();
+SELECT UUID_VERSION(@v7_uuid) AS version_v7;
+
+# Test UUID_VERSION with nil UUID (version 0)
+SELECT UUID_VERSION('00000000-0000-0000-0000-000000000000') AS version_nil;
+
+# Test UUID_VERSION with NULL input
+SELECT UUID_VERSION(NULL) IS NULL AS null_version;
+
+# Test UUID_VERSION with invalid UUID (returns 0)
+SELECT UUID_VERSION('invalid-uuid') AS invalid_version;
+
+--echo #
+--echo # Test UUID_TIMESTAMP function
+--echo #
+
+# Test UUID_TIMESTAMP with known v1 UUID (DNS namespace UUID from RFC - 1998-02-04 22:13:53 UTC)
+SELECT UUID_TIMESTAMP('6ba7b810-9dad-11d1-80b4-00c04fd430c8') AS timestamp_v1;
+
+# Release UUID-typed variables before further tests
+SET @v6_uuid = NULL;
+SET @v7_uuid = NULL;
+
+# Test UUID_TIMESTAMP with non-v1 UUID (returns NULL - not applicable)
+SELECT UUID_TIMESTAMP('550e8400-e29b-41d4-a716-446655440000') AS timestamp_v4;
+
+# Test UUID_TIMESTAMP with v3 UUID (returns empty - not applicable)
+SELECT UUID_TIMESTAMP('45a113ac-c7f2-30b0-90a5-a399ab912716') AS timestamp_v3;
+
+# Test UUID_TIMESTAMP with NULL input
+SELECT UUID_TIMESTAMP(NULL) IS NULL AS timestamp_null;
+
+# Test UUID_TIMESTAMP with invalid UUID (returns empty)
+SELECT UUID_TIMESTAMP('invalid-uuid') AS timestamp_invalid;
 
 # Cleanup
 UNINSTALL EXTENSION vsql_uuid;

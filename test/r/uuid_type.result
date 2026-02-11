@@ -35,17 +35,16 @@ case_insensitive
 1
 SET @test_uuid = '550e8400-e29b-41d4-a716-446655440000';
 INSERT INTO uuid_test (uuid_col, name) VALUES
-(vsql_uuid.uuid_to_binary(vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary(@test_uuid))),
-'roundtrip_conversion');
-SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000') = 0 AS compare_equal;
+(@test_uuid, 'roundtrip_conversion');
+SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000') = 0 AS compare_equal;
 compare_equal
 1
-SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000') > 0 AS compare_greater;
+SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000') > 0 AS compare_greater;
 compare_greater
 1
 INSERT INTO uuid_test (uuid_col, name) VALUES
-(vsql_uuid.uuid_generate_v3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v3_generated'),
-(vsql_uuid.uuid_generate_v5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v5_generated');
+(UUID_V3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v3_generated'),
+(UUID_V5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v5_generated');
 INSERT INTO uuid_test (uuid_col, name) VALUES (NULL, 'null_test');
 SELECT uuid_col IS NULL AS is_null, name FROM uuid_test WHERE name = 'null_test';
 is_null	name
@@ -124,25 +123,31 @@ DROP TABLE uuid_lookup;
 # Test UUID generation functions (non-deterministic)
 #
 INSERT INTO uuid_test (uuid_col, name) VALUES
-(vsql_uuid.uuid_generate(), 'generated_v4'),
-(vsql_uuid.uuid_generate_v1(), 'generated_v1'),
-(vsql_uuid.uuid_generate_v1mc(), 'generated_v1mc'),
-(vsql_uuid.uuid_generate_v4(), 'generated_v4_explicit');
+(UUID_V4(), 'generated_v4'),
+(UUID_V1(), 'generated_v1'),
+(UUID_V1MC(), 'generated_v1mc'),
+(UUID_V4(), 'generated_v4_explicit'),
+(UUID_V6(), 'generated_v6'),
+(UUID_V7(), 'generated_v7');
 SELECT COUNT(*) AS generated_count FROM uuid_test WHERE name LIKE 'generated%';
 generated_count
-4
+6
 SELECT name FROM uuid_test WHERE name LIKE 'generated%' ORDER BY name;
 name
 generated_v1
 generated_v1mc
 generated_v4
 generated_v4_explicit
-SELECT vsql_uuid.uuid_is_valid(vsql_uuid.binary_to_uuid(uuid_col)) AS is_valid, name
+generated_v6
+generated_v7
+SELECT uuid_col IS NOT NULL AS is_valid, name
 FROM uuid_test WHERE name LIKE 'generated%' ORDER BY name;
 is_valid	name
 1	generated_v1
 1	generated_v1mc
 1	generated_v4
 1	generated_v4_explicit
+1	generated_v6
+1	generated_v7
 DROP TABLE uuid_test;
 UNINSTALL EXTENSION vsql_uuid;

@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdlib>
+#include <ctime>
 #include <cstring>
 #include <random>
 #include <string>
@@ -419,6 +420,74 @@ bool generate_uuid_v5(const unsigned char* namespace_uuid, const char* name,
   return true;
 }
 
+bool generate_uuid_v6(unsigned char* binary_uuid, bool use_random_mac) {
+  if (!binary_uuid) return false;
+
+  static std::random_device rd;
+  static std::mt19937 gen(rd());
+  static std::uniform_int_distribution<uint16_t> clock_dis(0, 0x3FFF);
+  static uint16_t clock_seq = clock_dis(gen);
+
+  uint64_t timestamp = get_uuid_timestamp();
+  unsigned char node[6];
+  get_node_id(node, use_random_mac);
+
+  // UUID v6 layout: timestamp bits in high-to-low order for lexicographic sorting
+  // time_high (bits 59..28) -> bytes 0-3
+  binary_uuid[0] = (timestamp >> 52) & 0xFF;
+  binary_uuid[1] = (timestamp >> 44) & 0xFF;
+  binary_uuid[2] = (timestamp >> 36) & 0xFF;
+  binary_uuid[3] = (timestamp >> 28) & 0xFF;
+
+  // time_mid (bits 27..12) -> bytes 4-5
+  binary_uuid[4] = (timestamp >> 20) & 0xFF;
+  binary_uuid[5] = (timestamp >> 12) & 0xFF;
+
+  // time_low (bits 11..0) -> bytes 6-7 with version in high nibble
+  binary_uuid[6] = ((timestamp >> 8) & 0x0F) | 0x60;  // Version 6
+  binary_uuid[7] = timestamp & 0xFF;
+
+  // clock_seq_hi_and_reserved (8 bits)
+  binary_uuid[8] = ((clock_seq >> 8) & 0x3F) | 0x80;  // Variant 10
+
+  // clock_seq_low (8 bits)
+  binary_uuid[9] = clock_seq & 0xFF;
+
+  // node (48 bits)
+  memcpy(&binary_uuid[10], node, 6);
+
+  return true;
+}
+
+bool generate_uuid_v7(unsigned char* binary_uuid) {
+  if (!binary_uuid) return false;
+
+  // Get Unix timestamp in milliseconds
+  auto now = std::chrono::system_clock::now();
+  auto duration = now.time_since_epoch();
+  uint64_t unix_ts_ms =
+      std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+
+  // Generate random bytes for the rest
+  if (RAND_bytes(binary_uuid, 16) != 1) {
+    return false;
+  }
+
+  // Unix timestamp in milliseconds (48 bits, big-endian) -> bytes 0-5
+  binary_uuid[0] = (unix_ts_ms >> 40) & 0xFF;
+  binary_uuid[1] = (unix_ts_ms >> 32) & 0xFF;
+  binary_uuid[2] = (unix_ts_ms >> 24) & 0xFF;
+  binary_uuid[3] = (unix_ts_ms >> 16) & 0xFF;
+  binary_uuid[4] = (unix_ts_ms >> 8) & 0xFF;
+  binary_uuid[5] = unix_ts_ms & 0xFF;
+
+  // Set version (7) and variant bits
+  binary_uuid[6] = (binary_uuid[6] & 0x0F) | 0x70;  // Version 7
+  binary_uuid[8] = (binary_uuid[8] & 0x3F) | 0x80;  // Variant 10
+
+  return true;
+}
+
 }  // namespace uuid_funcs
 
 using namespace uuid_funcs;
@@ -485,45 +554,12 @@ int uuid_compare(const unsigned char* data1, size_t len1,
 // VDF Implementations
 // =============================================================================
 
-// Helper to format binary UUID to string result
-static void format_uuid_to_string_result(const unsigned char* binary_uuid,
-                                         vef_vdf_result_t* result) {
-  static const char hex_chars[] = "0123456789abcdef";
-  size_t pos = 0;
-
-  for (size_t i = 0; i < kUuidBinarySize; ++i) {
-    unsigned char byte = binary_uuid[i];
-    result->str_buf[pos++] = hex_chars[byte >> 4];
-    result->str_buf[pos++] = hex_chars[byte & 0x0F];
-
-    if (i == 3 || i == 5 || i == 7 || i == 9) {
-      result->str_buf[pos++] = '-';
-    }
-  }
-
-  result->type = VEF_RESULT_VALUE;
-  result->actual_len = kUuidStringMaxLength;
-}
-
 // Helper to copy binary UUID to binary result buffer
 static void copy_uuid_to_binary_result(const unsigned char* binary_uuid,
                                        vef_vdf_result_t* result) {
   memcpy(result->bin_buf, binary_uuid, kUuidBinarySize);
   result->type = VEF_RESULT_VALUE;
   result->actual_len = kUuidBinarySize;
-}
-
-// uuid_generate() - generates a random UUID (v4), returns UUID type
-void uuid_generate_impl(vef_context_t* ctx, vef_vdf_result_t* result) {
-  unsigned char binary_uuid[kUuidBinarySize];
-
-  if (!generate_uuid_v4(binary_uuid)) {
-    result->type = VEF_RESULT_ERROR;
-    strcpy(result->error_msg, "Failed to generate UUID");
-    return;
-  }
-
-  copy_uuid_to_binary_result(binary_uuid, result);
 }
 
 // uuid_generate_v1() - time-based UUID with MAC address, returns UUID type
@@ -623,22 +659,53 @@ void uuid_generate_v5_impl(vef_context_t* ctx,
   copy_uuid_to_binary_result(binary_uuid, result);
 }
 
-// uuid_is_valid(str) - validates UUID string format
-void uuid_is_valid_impl(vef_context_t* ctx,
-                        vef_invalue_t* arg,
-                        vef_vdf_result_t* result) {
+// UUID_V6() - time-ordered UUID (reordered v1), returns UUID type
+void uuid_generate_v6_impl(vef_context_t* ctx, vef_vdf_result_t* result) {
+  unsigned char binary_uuid[kUuidBinarySize];
+
+  if (!generate_uuid_v6(binary_uuid, false)) {
+    result->type = VEF_RESULT_ERROR;
+    strcpy(result->error_msg, "Failed to generate UUID v6");
+    return;
+  }
+
+  copy_uuid_to_binary_result(binary_uuid, result);
+}
+
+// UUID_V7() - Unix epoch time-ordered UUID, returns UUID type
+void uuid_generate_v7_impl(vef_context_t* ctx, vef_vdf_result_t* result) {
+  unsigned char binary_uuid[kUuidBinarySize];
+
+  if (!generate_uuid_v7(binary_uuid)) {
+    result->type = VEF_RESULT_ERROR;
+    strcpy(result->error_msg, "Failed to generate UUID v7");
+    return;
+  }
+
+  copy_uuid_to_binary_result(binary_uuid, result);
+}
+
+// UUID_VERSION(str) - extracts version number from UUID string
+void uuid_version_impl(vef_context_t* ctx,
+                       vef_invalue_t* arg,
+                       vef_vdf_result_t* result) {
   if (arg->is_null) {
-    result->type = VEF_RESULT_VALUE;
-    result->int_value = 0;
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  unsigned char binary_uuid[kUuidBinarySize];
+  if (!parse_uuid_string(arg->str_value, arg->str_len, binary_uuid)) {
+    result->type = VEF_RESULT_NULL;
     return;
   }
 
   result->type = VEF_RESULT_VALUE;
-  result->int_value = validate_uuid_format(arg->str_value, arg->str_len) ? 1 : 0;
+  result->int_value = (binary_uuid[6] >> 4) & 0x0F;
 }
 
-// uuid_to_binary(str) - converts UUID string to 16-byte binary
-void uuid_to_binary_impl(vef_context_t* ctx,
+// UUID_TIMESTAMP(str) - extracts timestamp from v1/v6/v7 UUID as datetime string
+void uuid_timestamp_impl(vef_context_t* ctx,
                          vef_invalue_t* arg,
                          vef_vdf_result_t* result) {
   if (arg->is_null) {
@@ -646,25 +713,89 @@ void uuid_to_binary_impl(vef_context_t* ctx,
     return;
   }
 
-  if (!parse_uuid_string(arg->str_value, arg->str_len, result->bin_buf)) {
+  unsigned char binary_uuid[kUuidBinarySize];
+  if (!parse_uuid_string(arg->str_value, arg->str_len, binary_uuid)) {
     result->type = VEF_RESULT_NULL;
     return;
   }
 
+  int version = (binary_uuid[6] >> 4) & 0x0F;
+  time_t unix_seconds;
+
+  if (version == 1) {
+    // v1: Extract 60-bit timestamp from v1 layout
+    uint64_t time_low = (static_cast<uint64_t>(binary_uuid[0]) << 24) |
+                        (static_cast<uint64_t>(binary_uuid[1]) << 16) |
+                        (static_cast<uint64_t>(binary_uuid[2]) << 8) |
+                        static_cast<uint64_t>(binary_uuid[3]);
+    uint64_t time_mid = (static_cast<uint64_t>(binary_uuid[4]) << 8) |
+                        static_cast<uint64_t>(binary_uuid[5]);
+    uint64_t time_hi = (static_cast<uint64_t>(binary_uuid[6] & 0x0F) << 8) |
+                       static_cast<uint64_t>(binary_uuid[7]);
+    uint64_t timestamp = (time_hi << 48) | (time_mid << 32) | time_low;
+
+    const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
+    if (timestamp < uuid_epoch_offset) {
+      result->type = VEF_RESULT_NULL;
+      return;
+    }
+    unix_seconds =
+        static_cast<time_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+
+  } else if (version == 6) {
+    // v6: Extract 60-bit timestamp from reordered layout (high bits first)
+    uint64_t timestamp =
+        (static_cast<uint64_t>(binary_uuid[0]) << 52) |
+        (static_cast<uint64_t>(binary_uuid[1]) << 44) |
+        (static_cast<uint64_t>(binary_uuid[2]) << 36) |
+        (static_cast<uint64_t>(binary_uuid[3]) << 28) |
+        (static_cast<uint64_t>(binary_uuid[4]) << 20) |
+        (static_cast<uint64_t>(binary_uuid[5]) << 12) |
+        (static_cast<uint64_t>(binary_uuid[6] & 0x0F) << 8) |
+        static_cast<uint64_t>(binary_uuid[7]);
+
+    const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
+    if (timestamp < uuid_epoch_offset) {
+      result->type = VEF_RESULT_NULL;
+      return;
+    }
+    unix_seconds =
+        static_cast<time_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+
+  } else if (version == 7) {
+    // v7: Extract 48-bit Unix millisecond timestamp from bytes 0-5
+    uint64_t unix_ts_ms =
+        (static_cast<uint64_t>(binary_uuid[0]) << 40) |
+        (static_cast<uint64_t>(binary_uuid[1]) << 32) |
+        (static_cast<uint64_t>(binary_uuid[2]) << 24) |
+        (static_cast<uint64_t>(binary_uuid[3]) << 16) |
+        (static_cast<uint64_t>(binary_uuid[4]) << 8) |
+        static_cast<uint64_t>(binary_uuid[5]);
+    unix_seconds = static_cast<time_t>(unix_ts_ms / 1000);
+
+  } else {
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  struct tm tm_buf;
+  if (gmtime_r(&unix_seconds, &tm_buf) == nullptr) {
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  // Format into a local buffer first, then copy to result
+  // (sizeof(result->str_buf) may not reflect the actual allocated size)
+  char buf[20];  // "YYYY-MM-DD HH:MM:SS" + null = 20 bytes
+  size_t len = strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_buf);
+  if (len == 0) {
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  memcpy(result->str_buf, buf, len);
   result->type = VEF_RESULT_VALUE;
-  result->actual_len = kUuidBinarySize;
-}
-
-// binary_to_uuid(bin) - converts 16-byte binary to UUID string
-void binary_to_uuid_impl(vef_context_t* ctx,
-                         vef_invalue_t* arg,
-                         vef_vdf_result_t* result) {
-  if (arg->is_null || arg->bin_len != kUuidBinarySize) {
-    result->type = VEF_RESULT_NULL;
-    return;
-  }
-
-  format_uuid_to_string_result(arg->bin_value, result);
+  result->actual_len = len;
 }
 
 // uuid_compare(str1, str2) - compares two UUID strings, returns -1/0/1
@@ -698,7 +829,7 @@ void uuid_compare_impl(vef_context_t* ctx,
 // =============================================================================
 
 VEF_GENERATE_ENTRY_POINTS(
-  make_extension("vsql_uuid", "0.0.1")
+  make_extension("vsql_uuid", "0.0.2")
     // UUID type definition
     .type(make_type(UUID)
       .persisted_length(kUuidBinarySize)
@@ -709,54 +840,53 @@ VEF_GENERATE_ENTRY_POINTS(
       .build())
 
     // UUID generation functions - all return UUID type (binary)
-    .func(make_func<&uuid_generate_impl>("uuid_generate")
+    .func(make_func<&uuid_generate_v1_impl>("UUID_V1")
       .returns(UUID)
       .build())
 
-    .func(make_func<&uuid_generate_v1_impl>("uuid_generate_v1")
+    .func(make_func<&uuid_generate_v1mc_impl>("UUID_V1MC")
       .returns(UUID)
       .build())
 
-    .func(make_func<&uuid_generate_v1mc_impl>("uuid_generate_v1mc")
-      .returns(UUID)
-      .build())
-
-    .func(make_func<&uuid_generate_v3_impl>("uuid_generate_v3")
+    .func(make_func<&uuid_generate_v3_impl>("UUID_V3")
       .returns(UUID)
       .param(STRING)
       .param(STRING)
       .build())
 
-    .func(make_func<&uuid_generate_v4_impl>("uuid_generate_v4")
+    .func(make_func<&uuid_generate_v4_impl>("UUID_V4")
       .returns(UUID)
       .build())
 
-    .func(make_func<&uuid_generate_v5_impl>("uuid_generate_v5")
+    .func(make_func<&uuid_generate_v5_impl>("UUID_V5")
       .returns(UUID)
       .param(STRING)
       .param(STRING)
+      .build())
+
+    .func(make_func<&uuid_generate_v6_impl>("UUID_V6")
+      .returns(UUID)
+      .build())
+
+    .func(make_func<&uuid_generate_v7_impl>("UUID_V7")
+      .returns(UUID)
       .build())
 
     // UUID utility functions
-    .func(make_func<&uuid_is_valid_impl>("uuid_is_valid")
+    .func(make_func<&uuid_compare_impl>("UUID_COMPARE")
+      .returns(INT)
+      .param(STRING)
+      .param(STRING)
+      .build())
+
+    .func(make_func<&uuid_version_impl>("UUID_VERSION")
       .returns(INT)
       .param(STRING)
       .build())
 
-    .func(make_func<&uuid_to_binary_impl>("uuid_to_binary")
-      .returns(UUID)
-      .param(STRING)
-      .build())
-
-    .func(make_func<&binary_to_uuid_impl>("binary_to_uuid")
+    .func(make_func<&uuid_timestamp_impl>("UUID_TIMESTAMP")
       .returns(STRING)
-      .param(UUID)
-      .buffer_size(kUuidStringMaxLength + 1)
-      .build())
-
-    .func(make_func<&uuid_compare_impl>("uuid_compare")
-      .returns(INT)
       .param(STRING)
-      .param(STRING)
+      .buffer_size(20)
       .build())
 )

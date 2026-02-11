@@ -2,13 +2,13 @@
 
 # VillageSQL UUID Extension
 
-A comprehensive UUID extension for VillageSQL Server that adds UUID generation, validation, conversion, and comparison capabilities with support for UUID versions 1, 3, 4, and 5.
+A comprehensive UUID extension for VillageSQL Server that adds UUID generation, introspection, and comparison capabilities with support for UUID versions 1, 3, 4, 5, 6, and 7.
 
 ## Features
 
-- **Full UUID Support**: Generate UUIDs v1 (time-based), v3 (MD5-based), v4 (random), and v5 (SHA1-based)
+- **Full UUID Support**: Generate UUIDs v1 (time-based), v3 (MD5-based), v4 (random), v5 (SHA1-based), v6 (reordered time), and v7 (Unix epoch time)
 - **Custom UUID Type**: Native 16-byte binary UUID storage with automatic string conversion
-- **Validation & Conversion**: Comprehensive UUID validation and binary/string conversion utilities
+- **UUID Introspection**: Extract version and timestamp from existing UUIDs
 - **High Performance**: Optimized C++ implementation with minimal overhead
 
 ## Installation
@@ -59,40 +59,44 @@ After installation, the extension provides the following functions:
 ### UUID Generation
 ```sql
 -- Generate UUID v4 (random)
-SELECT vsql_uuid.uuid_generate_v4();
+SELECT UUID_V4();
 -- Result: 550e8400-e29b-41d4-a716-446655440000
 
 -- Generate UUID v1 (time-based)
-SELECT vsql_uuid.uuid_generate_v1();
+SELECT UUID_V1();
 
 -- Generate UUID v1 with random MAC (multicast)
-SELECT vsql_uuid.uuid_generate_v1mc();
+SELECT UUID_V1MC();
 
 -- Generate UUID v3 (name-based, MD5)
-SELECT vsql_uuid.uuid_generate_v3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
+SELECT UUID_V3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
 
 -- Generate UUID v5 (name-based, SHA1)
-SELECT vsql_uuid.uuid_generate_v5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
+SELECT UUID_V5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com');
+
+-- Generate UUID v6 (reordered time-based, sortable)
+SELECT UUID_V6();
+
+-- Generate UUID v7 (Unix epoch time-based, sortable)
+SELECT UUID_V7();
 ```
 
-### UUID Validation and Conversion
+### UUID Introspection
 ```sql
--- Validate UUID format
-SELECT vsql_uuid.uuid_is_valid('550e8400-e29b-41d4-a716-446655440000'); -- Returns 1
+-- Get UUID version
+SELECT UUID_VERSION('550e8400-e29b-41d4-a716-446655440000'); -- Returns 4
 
--- Convert UUID to binary
-SELECT vsql_uuid.uuid_to_binary('550e8400-e29b-41d4-a716-446655440000');
+-- Get timestamp from v1, v6, or v7 UUID
+SELECT UUID_TIMESTAMP('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
+-- Returns: 1998-02-04 22:13:53
 
--- Convert binary to UUID string
-SELECT vsql_uuid.binary_to_uuid(vsql_uuid.uuid_to_binary('550e8400-e29b-41d4-a716-446655440000'));
-
--- Compare UUIDs
-SELECT vsql_uuid.uuid_compare('550e8400-e29b-41d4-a716-446655440000',
-                               '6ba7b810-9dad-11d1-80b4-00c04fd430c8'); -- Returns -1, 0, or 1
+-- Compare UUIDs (-1, 0, or 1)
+SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000',
+                     '6ba7b810-9dad-11d1-80b4-00c04fd430c8');
 ```
 
 ### UUID Type
-The extension also provides a custom `UUID` type for efficient storage:
+The extension provides a custom `UUID` type for efficient storage:
 ```sql
 -- Create table with UUID column
 CREATE TABLE users (
@@ -101,7 +105,7 @@ CREATE TABLE users (
 );
 
 -- Insert with generated UUID
-INSERT INTO users VALUES (vsql_uuid.uuid_generate_v4(), 'John Doe');
+INSERT INTO users VALUES (UUID_V4(), 'John Doe');
 ```
 
 ## Testing
