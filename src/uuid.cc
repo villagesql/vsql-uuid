@@ -24,9 +24,8 @@
 #endif
 
 // Use OpenSSL for MD5, SHA1, and secure random number generation
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include <openssl/rand.h>
-#include <openssl/sha.h>
 
 using namespace villagesql::extension_builder;
 using namespace villagesql::func_builder;
@@ -381,12 +380,15 @@ bool generate_uuid_v3(const unsigned char* namespace_uuid, const char* name,
   if (!namespace_uuid || !name || !binary_uuid) return false;
 
   unsigned char digest[16];
+  unsigned int digest_len = 0;
 
-  MD5_CTX ctx;
-  MD5_Init(&ctx);
-  MD5_Update(&ctx, namespace_uuid, 16);
-  MD5_Update(&ctx, name, name_len);
-  MD5_Final(digest, &ctx);
+  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+  if (!ctx) return false;
+  EVP_DigestInit_ex(ctx, EVP_md5(), nullptr);
+  EVP_DigestUpdate(ctx, namespace_uuid, 16);
+  EVP_DigestUpdate(ctx, name, name_len);
+  EVP_DigestFinal_ex(ctx, digest, &digest_len);
+  EVP_MD_CTX_free(ctx);
 
   // Copy digest to UUID
   memcpy(binary_uuid, digest, 16);
@@ -403,12 +405,15 @@ bool generate_uuid_v5(const unsigned char* namespace_uuid, const char* name,
   if (!namespace_uuid || !name || !binary_uuid) return false;
 
   unsigned char digest[20];
+  unsigned int digest_len = 0;
 
-  SHA_CTX ctx;
-  SHA1_Init(&ctx);
-  SHA1_Update(&ctx, namespace_uuid, 16);
-  SHA1_Update(&ctx, name, name_len);
-  SHA1_Final(digest, &ctx);
+  EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+  if (!ctx) return false;
+  EVP_DigestInit_ex(ctx, EVP_sha1(), nullptr);
+  EVP_DigestUpdate(ctx, namespace_uuid, 16);
+  EVP_DigestUpdate(ctx, name, name_len);
+  EVP_DigestFinal_ex(ctx, digest, &digest_len);
+  EVP_MD_CTX_free(ctx);
 
   // Copy first 16 bytes of SHA1 digest to UUID
   memcpy(binary_uuid, digest, 16);
