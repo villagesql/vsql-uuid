@@ -23,6 +23,12 @@ SELECT UUID_VERSION('550e8400-e29b-41d4-a716-446655440000') AS version_v4;
 # Test UUID_VERSION with known v5 UUID
 SELECT UUID_VERSION('4be0643f-1d98-573b-97cd-ca98a65347dd') AS version_v5;
 
+# Test UUID_VERSION with known v6 UUID (reordered v1 of DNS namespace UUID)
+SELECT UUID_VERSION('1d19dad6-ba7b-6810-80b4-00c04fd430c8') AS version_v6_known;
+
+# Test UUID_VERSION with known v7 UUID
+SELECT UUID_VERSION('01901931-9c00-7000-8000-000000000000') AS version_v7_known;
+
 # Test UUID_VERSION with generated v6 UUID
 SET @v6_uuid = UUID_V6();
 SELECT UUID_VERSION(@v6_uuid) AS version_v6;
@@ -33,6 +39,9 @@ SELECT UUID_VERSION(@v7_uuid) AS version_v7;
 
 # Test UUID_VERSION with nil UUID (version 0)
 SELECT UUID_VERSION('00000000-0000-0000-0000-000000000000') AS version_nil;
+
+# Test UUID_VERSION with max UUID (version nibble = f = 15)
+SELECT UUID_VERSION('ffffffff-ffff-ffff-ffff-ffffffffffff') AS version_max;
 
 # Test UUID_VERSION with NULL input
 SELECT UUID_VERSION(NULL) IS NULL AS null_version;
@@ -46,6 +55,12 @@ SELECT UUID_VERSION('invalid-uuid') AS invalid_version;
 
 # Test UUID_TIMESTAMP with known v1 UUID (DNS namespace UUID from RFC - 1998-02-04 22:13:53 UTC)
 SELECT UUID_TIMESTAMP('6ba7b810-9dad-11d1-80b4-00c04fd430c8') AS timestamp_v1;
+
+# Test UUID_TIMESTAMP with known v6 UUID (same timestamp as v1 DNS namespace UUID above)
+SELECT UUID_TIMESTAMP('1d19dad6-ba7b-6810-80b4-00c04fd430c8') AS timestamp_v6;
+
+# Test UUID_TIMESTAMP with known v7 UUID (2024-06-15 00:00:00 UTC)
+SELECT UUID_TIMESTAMP('01901931-9c00-7000-8000-000000000000') AS timestamp_v7;
 
 # Release UUID-typed variables before further tests
 SET @v6_uuid = NULL;
@@ -62,6 +77,40 @@ SELECT UUID_TIMESTAMP(NULL) IS NULL AS timestamp_null;
 
 # Test UUID_TIMESTAMP with invalid UUID (returns empty)
 SELECT UUID_TIMESTAMP('invalid-uuid') AS timestamp_invalid;
+
+# Test UUID_TIMESTAMP with nil UUID (version 0, no timestamp)
+SELECT UUID_TIMESTAMP('00000000-0000-0000-0000-000000000000') AS timestamp_nil;
+
+# Test UUID_TIMESTAMP with max UUID (version 15, no timestamp)
+SELECT UUID_TIMESTAMP('ffffffff-ffff-ffff-ffff-ffffffffffff') AS timestamp_max;
+
+--echo #
+--echo # Test UUID_EPOCH function
+--echo #
+
+# Test UUID_EPOCH with known v1 UUID (DNS namespace UUID from RFC)
+SELECT UUID_EPOCH('6ba7b810-9dad-11d1-80b4-00c04fd430c8') AS epoch_v1;
+
+# Test UUID_EPOCH with known v6 UUID (same timestamp as v1 DNS namespace UUID)
+SELECT UUID_EPOCH('1d19dad6-ba7b-6810-80b4-00c04fd430c8') AS epoch_v6;
+
+# Test UUID_EPOCH with known v7 UUID (2024-06-15 00:00:00 UTC = 1718409600)
+SELECT UUID_EPOCH('01901931-9c00-7000-8000-000000000000') AS epoch_v7;
+
+# Test UUID_EPOCH with v4 UUID (no timestamp, returns NULL)
+SELECT UUID_EPOCH('550e8400-e29b-41d4-a716-446655440000') AS epoch_v4;
+
+# Test UUID_EPOCH with nil UUID (returns NULL)
+SELECT UUID_EPOCH('00000000-0000-0000-0000-000000000000') AS epoch_nil;
+
+# Test UUID_EPOCH with max UUID (returns NULL)
+SELECT UUID_EPOCH('ffffffff-ffff-ffff-ffff-ffffffffffff') AS epoch_max;
+
+# Test UUID_EPOCH with NULL input
+SELECT UUID_EPOCH(NULL) IS NULL AS epoch_null;
+
+# Test UUID_EPOCH with invalid UUID
+SELECT UUID_EPOCH('invalid-uuid') AS epoch_invalid;
 
 # Cleanup
 UNINSTALL EXTENSION vsql_uuid;

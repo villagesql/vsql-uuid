@@ -803,6 +803,81 @@ void uuid_timestamp_impl(vef_context_t* ctx,
   result->actual_len = len;
 }
 
+// UUID_EPOCH(str) - extracts Unix epoch timestamp (seconds since 1970) from v1/v6/v7 UUID
+void uuid_epoch_impl(vef_context_t* ctx,
+                     vef_invalue_t* arg,
+                     vef_vdf_result_t* result) {
+  if (arg->is_null) {
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  unsigned char binary_uuid[kUuidBinarySize];
+  if (!parse_uuid_string(arg->str_value, arg->str_len, binary_uuid)) {
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  int version = (binary_uuid[6] >> 4) & 0x0F;
+  int64_t unix_seconds;
+
+  if (version == 1) {
+    uint64_t time_low = (static_cast<uint64_t>(binary_uuid[0]) << 24) |
+                        (static_cast<uint64_t>(binary_uuid[1]) << 16) |
+                        (static_cast<uint64_t>(binary_uuid[2]) << 8) |
+                        static_cast<uint64_t>(binary_uuid[3]);
+    uint64_t time_mid = (static_cast<uint64_t>(binary_uuid[4]) << 8) |
+                        static_cast<uint64_t>(binary_uuid[5]);
+    uint64_t time_hi = (static_cast<uint64_t>(binary_uuid[6] & 0x0F) << 8) |
+                       static_cast<uint64_t>(binary_uuid[7]);
+    uint64_t timestamp = (time_hi << 48) | (time_mid << 32) | time_low;
+
+    const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
+    if (timestamp < uuid_epoch_offset) {
+      result->type = VEF_RESULT_NULL;
+      return;
+    }
+    unix_seconds =
+        static_cast<int64_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+
+  } else if (version == 6) {
+    uint64_t timestamp =
+        (static_cast<uint64_t>(binary_uuid[0]) << 52) |
+        (static_cast<uint64_t>(binary_uuid[1]) << 44) |
+        (static_cast<uint64_t>(binary_uuid[2]) << 36) |
+        (static_cast<uint64_t>(binary_uuid[3]) << 28) |
+        (static_cast<uint64_t>(binary_uuid[4]) << 20) |
+        (static_cast<uint64_t>(binary_uuid[5]) << 12) |
+        (static_cast<uint64_t>(binary_uuid[6] & 0x0F) << 8) |
+        static_cast<uint64_t>(binary_uuid[7]);
+
+    const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
+    if (timestamp < uuid_epoch_offset) {
+      result->type = VEF_RESULT_NULL;
+      return;
+    }
+    unix_seconds =
+        static_cast<int64_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+
+  } else if (version == 7) {
+    uint64_t unix_ts_ms =
+        (static_cast<uint64_t>(binary_uuid[0]) << 40) |
+        (static_cast<uint64_t>(binary_uuid[1]) << 32) |
+        (static_cast<uint64_t>(binary_uuid[2]) << 24) |
+        (static_cast<uint64_t>(binary_uuid[3]) << 16) |
+        (static_cast<uint64_t>(binary_uuid[4]) << 8) |
+        static_cast<uint64_t>(binary_uuid[5]);
+    unix_seconds = static_cast<int64_t>(unix_ts_ms / 1000);
+
+  } else {
+    result->type = VEF_RESULT_NULL;
+    return;
+  }
+
+  result->type = VEF_RESULT_VALUE;
+  result->int_value = unix_seconds;
+}
+
 // uuid_compare(str1, str2) - compares two UUID strings, returns -1/0/1
 void uuid_compare_impl(vef_context_t* ctx,
                        vef_invalue_t* arg1, vef_invalue_t* arg2,
@@ -893,5 +968,10 @@ VEF_GENERATE_ENTRY_POINTS(
       .returns(STRING)
       .param(STRING)
       .buffer_size(20)
+      .build())
+
+    .func(make_func<&uuid_epoch_impl>("UUID_EPOCH")
+      .returns(INT)
+      .param(STRING)
       .build())
 )
