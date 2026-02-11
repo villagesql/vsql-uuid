@@ -39,20 +39,18 @@ The build process:
 ## Architecture
 
 **Core Components:**
-- `src/uuid.cc` - VDF (VillageSQL Defined Function) implementations and extension registration via `VEF_GENERATE_ENTRY_POINTS()`
-- `src/uuid_funcs.cc` - Core UUID implementation with v1/v3/v4/v5 generation, string parsing/formatting utilities
-- `src/uuid_funcs.h` - Header for UUID utility functions
+- `src/uuid.cc` - All VDF (VillageSQL Defined Function) implementations, core UUID logic, and extension registration via `VEF_GENERATE_ENTRY_POINTS()`
 - `cmake/FindVillageSQL.cmake` - CMake module to locate the VillageSQL SDK
 
 **Extension Registration:**
 The extension uses the VillageSQL Extension Framework's fluent builder API to register:
 - Custom `uuid` type with encode/decode/compare functions
-- All UUID functions (generation, validation, conversion)
+- All UUID functions (generation, introspection, comparison)
 
 **Available Functions:**
-- **Generation**: `uuid_generate()`, `uuid_generate_v1()`, `uuid_generate_v1mc()`, `uuid_generate_v3()`, `uuid_generate_v4()`, `uuid_generate_v5()`
-- **Validation**: `uuid_is_valid()` - Validates UUID string format
-- **Conversion**: `uuid_to_binary()`/`binary_to_uuid()` - Conversion between string and binary formats
+- **Generation**: `UUID_V1()`, `UUID_V1MC()`, `UUID_V3()`, `UUID_V4()`, `UUID_V5()`, `UUID_V6()`, `UUID_V7()`
+- **Introspection**: `UUID_VERSION()` - Returns UUID version number, `UUID_TIMESTAMP()` - Returns timestamp from v1/v6/v7 UUIDs
+- **Comparison**: `UUID_COMPARE()` - Lexicographic UUID comparison
 
 **UUID Type:**
 - Custom `uuid` type with 16-byte binary storage
@@ -64,6 +62,8 @@ The extension uses the VillageSQL Extension Framework's fluent builder API to re
 - **v3**: Name-based UUIDs using MD5 hash
 - **v4**: Random UUIDs
 - **v5**: Name-based UUIDs using SHA-1 hash
+- **v6**: Reordered time-based UUIDs (sortable, RFC 9562)
+- **v7**: Unix epoch time-based UUIDs (sortable, RFC 9562)
 
 **Dependencies:**
 - VillageSQL Extension SDK (`<villagesql/extension.h>`)
@@ -76,7 +76,7 @@ The code follows the Google C++ Style Guide, with a few exceptions:
 - **File Naming:** File names are lowercase with underscores (e.g., `uuid_funcs.cc`)
 - **Variable Naming:** Variables are lowercase with underscores (e.g., `binary_uuid`)
 - **Function Naming:** Functions are lowercase with underscores (e.g., `generate_uuid_v1`)
-- **Namespace:** The core UUID functions are in the `villagesql::builtin_extensions::village_uuid` namespace
+- **Namespace:** The core UUID helper functions are in the `uuid_funcs` namespace
 
 ## Testing
 
