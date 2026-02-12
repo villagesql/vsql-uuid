@@ -103,7 +103,7 @@ SELECT UUID_TIMESTAMP('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
 
 -- Get Unix epoch timestamp from v1, v6, or v7 UUID
 SELECT UUID_EPOCH('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
--- Returns: 887973533 (Unix timestamp)
+-- Returns: 886630433 (Unix timestamp)
 
 -- Returns NULL for UUIDs without timestamps (v3, v4, v5)
 SELECT UUID_EPOCH('550e8400-e29b-41d4-a716-446655440000'); -- Returns NULL
