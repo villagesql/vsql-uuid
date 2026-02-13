@@ -101,6 +101,13 @@ SELECT UUID_VERSION('550e8400-e29b-41d4-a716-446655440000'); -- Returns 4
 SELECT UUID_TIMESTAMP('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
 -- Returns: 1998-02-04 22:13:53
 
+-- Get Unix epoch timestamp from v1, v6, or v7 UUID
+SELECT UUID_EPOCH('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
+-- Returns: 886630433 (Unix timestamp)
+
+-- Returns NULL for UUIDs without timestamps (v3, v4, v5)
+SELECT UUID_EPOCH('550e8400-e29b-41d4-a716-446655440000'); -- Returns NULL
+
 -- Compare UUIDs (-1, 0, or 1)
 SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000',
                      '6ba7b810-9dad-11d1-80b4-00c04fd430c8');
@@ -200,7 +207,7 @@ License information can be found in the [LICENSE](./LICENSE) file.
 
 ## Contributing
 
-VillageSQL welcomes contributions from the community. For more information, please see the [VillageSQL Contributing Guide](https://github.com/villagesql/villagesql/blob/main/CONTRIBUTING.md).
+VillageSQL welcomes contributions from the community. For more information, please see the [VillageSQL Contributing Guide](https://github.com/villagesql/villagesql-server/blob/main/CONTRIBUTING.md).
 
 ## Contact
 
