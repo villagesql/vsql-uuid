@@ -690,7 +690,7 @@ void uuid_generate_v7_impl(vef_context_t* ctx, vef_vdf_result_t* result) {
   copy_uuid_to_binary_result(binary_uuid, result);
 }
 
-// UUID_VERSION(str) - extracts version number from UUID string
+// UUID_VERSION(uuid) - extracts version number from UUID value
 void uuid_version_impl(vef_context_t* ctx,
                        vef_invalue_t* arg,
                        vef_vdf_result_t* result) {
@@ -699,17 +699,11 @@ void uuid_version_impl(vef_context_t* ctx,
     return;
   }
 
-  unsigned char binary_uuid[kUuidBinarySize];
-  if (!parse_uuid_string(arg->str_value, arg->str_len, binary_uuid)) {
-    result->type = VEF_RESULT_NULL;
-    return;
-  }
-
   result->type = VEF_RESULT_VALUE;
-  result->int_value = (binary_uuid[6] >> 4) & 0x0F;
+  result->int_value = (arg->bin_value[6] >> 4) & 0x0F;
 }
 
-// UUID_TIMESTAMP(str) - extracts timestamp from v1/v6/v7 UUID as datetime string
+// UUID_TIMESTAMP(uuid) - extracts timestamp from v1/v6/v7 UUID as datetime string
 void uuid_timestamp_impl(vef_context_t* ctx,
                          vef_invalue_t* arg,
                          vef_vdf_result_t* result) {
@@ -718,12 +712,7 @@ void uuid_timestamp_impl(vef_context_t* ctx,
     return;
   }
 
-  unsigned char binary_uuid[kUuidBinarySize];
-  if (!parse_uuid_string(arg->str_value, arg->str_len, binary_uuid)) {
-    result->type = VEF_RESULT_NULL;
-    return;
-  }
-
+  const unsigned char *binary_uuid = arg->bin_value;
   int version = (binary_uuid[6] >> 4) & 0x0F;
   time_t unix_seconds;
 
@@ -803,7 +792,7 @@ void uuid_timestamp_impl(vef_context_t* ctx,
   result->actual_len = len;
 }
 
-// UUID_EPOCH(str) - extracts Unix epoch timestamp (seconds since 1970) from v1/v6/v7 UUID
+// UUID_EPOCH(uuid) - extracts Unix epoch timestamp (seconds since 1970) from v1/v6/v7 UUID
 void uuid_epoch_impl(vef_context_t* ctx,
                      vef_invalue_t* arg,
                      vef_vdf_result_t* result) {
@@ -812,12 +801,7 @@ void uuid_epoch_impl(vef_context_t* ctx,
     return;
   }
 
-  unsigned char binary_uuid[kUuidBinarySize];
-  if (!parse_uuid_string(arg->str_value, arg->str_len, binary_uuid)) {
-    result->type = VEF_RESULT_NULL;
-    return;
-  }
-
+  const unsigned char *binary_uuid = arg->bin_value;
   int version = (binary_uuid[6] >> 4) & 0x0F;
   int64_t unix_seconds;
 
@@ -878,7 +862,7 @@ void uuid_epoch_impl(vef_context_t* ctx,
   result->int_value = unix_seconds;
 }
 
-// uuid_compare(str1, str2) - compares two UUID strings, returns -1/0/1
+// uuid_compare(uuid1, uuid2) - compares two UUID values, returns -1/0/1
 void uuid_compare_impl(vef_context_t* ctx,
                        vef_invalue_t* arg1, vef_invalue_t* arg2,
                        vef_vdf_result_t* result) {
@@ -887,18 +871,7 @@ void uuid_compare_impl(vef_context_t* ctx,
     return;
   }
 
-  // Parse both UUID strings to binary
-  unsigned char binary1[kUuidBinarySize];
-  unsigned char binary2[kUuidBinarySize];
-
-  if (!parse_uuid_string(arg1->str_value, arg1->str_len, binary1) ||
-      !parse_uuid_string(arg2->str_value, arg2->str_len, binary2)) {
-    result->type = VEF_RESULT_NULL;
-    return;
-  }
-
-  // Compare the binary UUIDs
-  int cmp = memcmp(binary1, binary2, kUuidBinarySize);
+  int cmp = memcmp(arg1->bin_value, arg2->bin_value, kUuidBinarySize);
 
   result->type = VEF_RESULT_VALUE;
   result->int_value = (cmp < 0) ? -1 : (cmp > 0) ? 1 : 0;
@@ -955,23 +928,23 @@ VEF_GENERATE_ENTRY_POINTS(
     // UUID utility functions
     .func(make_func<&uuid_compare_impl>("UUID_COMPARE")
       .returns(INT)
-      .param(STRING)
-      .param(STRING)
+      .param(UUID)
+      .param(UUID)
       .build())
 
     .func(make_func<&uuid_version_impl>("UUID_VERSION")
       .returns(INT)
-      .param(STRING)
+      .param(UUID)
       .build())
 
     .func(make_func<&uuid_timestamp_impl>("UUID_TIMESTAMP")
       .returns(STRING)
-      .param(STRING)
+      .param(UUID)
       .buffer_size(20)
       .build())
 
     .func(make_func<&uuid_epoch_impl>("UUID_EPOCH")
       .returns(INT)
-      .param(STRING)
+      .param(UUID)
       .build())
 )

@@ -42,9 +42,15 @@ SET @test_uuid = '550e8400-e29b-41d4-a716-446655440000';
 INSERT INTO uuid_test (uuid_col, name) VALUES
     (@test_uuid, 'roundtrip_conversion');
 
-# Test UUID comparison using uuid_compare function (compares string UUIDs)
-SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000') = 0 AS compare_equal;
-SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000') > 0 AS compare_greater;
+# Test UUID comparison using uuid_compare function.
+# Use a two-column table to avoid MySQL's "can't reopen temp table" restriction.
+CREATE TABLE vsql_test_cmp_type (a UUID, b UUID);
+INSERT INTO vsql_test_cmp_type VALUES
+  ('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000'),
+  ('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000');
+SELECT UUID_COMPARE(a, b) = 0 AS compare_equal FROM vsql_test_cmp_type LIMIT 1;
+SELECT UUID_COMPARE(a, b) > 0 AS compare_greater FROM vsql_test_cmp_type LIMIT 1 OFFSET 1;
+DROP TABLE vsql_test_cmp_type;
 
 # Test UUID type with namespace-based generation (deterministic - same inputs = same output)
 INSERT INTO uuid_test (uuid_col, name) VALUES
