@@ -67,6 +67,19 @@ A comprehensive UUID extension for VillageSQL Server that adds UUID generation, 
 
 After installation, the extension provides the following functions. Functions can be called with or without the extension prefix:
 
+### UUID Type
+The extension provides a custom `UUID` type for efficient binary storage:
+```sql
+-- Create table with UUID column
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+-- Insert with generated UUID
+INSERT INTO users VALUES (UUID_V4(), 'John Doe');
+```
+
 ### UUID Generation
 ```sql
 -- Generate UUID v4 (random)
@@ -115,19 +128,6 @@ SELECT UUID_EPOCH(id) FROM events;
 -- Compare two UUID columns (-1, 0, or 1)
 SELECT UUID_COMPARE(a.id, b.id) FROM users a, users b
 WHERE a.name = 'Alice' AND b.name = 'Bob';
-```
-
-### UUID Type
-The extension provides a custom `UUID` type for efficient storage:
-```sql
--- Create table with UUID column
-CREATE TABLE users (
-    id UUID PRIMARY KEY,
-    name VARCHAR(100)
-);
-
--- Insert with generated UUID
-INSERT INTO users VALUES (UUID_V4(), 'John Doe');
 ```
 
 ## Testing
