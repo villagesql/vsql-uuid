@@ -36,12 +36,17 @@ case_insensitive
 SET @test_uuid = '550e8400-e29b-41d4-a716-446655440000';
 INSERT INTO uuid_test (uuid_col, name) VALUES
 (@test_uuid, 'roundtrip_conversion');
-SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000') = 0 AS compare_equal;
+CREATE TABLE vsql_test_cmp_type (a UUID, b UUID);
+INSERT INTO vsql_test_cmp_type VALUES
+('550e8400-e29b-41d4-a716-446655440000', '550e8400-e29b-41d4-a716-446655440000'),
+('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000');
+SELECT UUID_COMPARE(a, b) = 0 AS compare_equal FROM vsql_test_cmp_type LIMIT 1;
 compare_equal
 1
-SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000', '00000000-0000-0000-0000-000000000000') > 0 AS compare_greater;
+SELECT UUID_COMPARE(a, b) > 0 AS compare_greater FROM vsql_test_cmp_type LIMIT 1 OFFSET 1;
 compare_greater
 1
+DROP TABLE vsql_test_cmp_type;
 INSERT INTO uuid_test (uuid_col, name) VALUES
 (UUID_V3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v3_generated'),
 (UUID_V5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'test'), 'v5_generated');
