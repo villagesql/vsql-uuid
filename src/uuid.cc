@@ -882,7 +882,7 @@ void uuid_compare_impl(vef_context_t* ctx,
 // =============================================================================
 
 VEF_GENERATE_ENTRY_POINTS(
-  make_extension("vsql_uuid", "0.0.2")
+  make_extension("vsql_uuid", "0.0.3")
     // UUID type definition
     .type(make_type(UUID)
       .persisted_length(kUuidBinarySize)

@@ -67,6 +67,19 @@ A comprehensive UUID extension for VillageSQL Server that adds UUID generation, 
 
 After installation, the extension provides the following functions. Functions can be called with or without the extension prefix:
 
+### UUID Type
+The extension provides a custom `UUID` type for efficient binary storage:
+```sql
+-- Create table with UUID column
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+-- Insert with generated UUID
+INSERT INTO users VALUES (UUID_V4(), 'John Doe');
+```
+
 ### UUID Generation
 ```sql
 -- Generate UUID v4 (random)
@@ -93,37 +106,28 @@ SELECT UUID_V7();
 ```
 
 ### UUID Introspection
+
+These functions take a `uuid` column value, not a string. Use them against
+a table column or a UUID generation function:
+
 ```sql
--- Get UUID version
-SELECT UUID_VERSION('550e8400-e29b-41d4-a716-446655440000'); -- Returns 4
+-- Get UUID version from a column
+SELECT UUID_VERSION(id) FROM users WHERE name = 'John Doe'; -- Returns 4
 
--- Get timestamp from v1, v6, or v7 UUID
-SELECT UUID_TIMESTAMP('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
--- Returns: 1998-02-04 22:13:53
+-- Get UUID version from a generated value
+SELECT UUID_VERSION(UUID_V7()); -- Returns 7
 
--- Get Unix epoch timestamp from v1, v6, or v7 UUID
-SELECT UUID_EPOCH('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
--- Returns: 886630433 (Unix timestamp)
+-- Get timestamp from v1, v6, or v7 UUID column
+SELECT UUID_TIMESTAMP(id) FROM events;
+-- Returns: 1998-02-04 22:13:53 (NULL for v3/v4/v5)
 
--- Returns NULL for UUIDs without timestamps (v3, v4, v5)
-SELECT UUID_EPOCH('550e8400-e29b-41d4-a716-446655440000'); -- Returns NULL
+-- Get Unix epoch timestamp from a v1, v6, or v7 UUID column
+SELECT UUID_EPOCH(id) FROM events;
+-- Returns: 886630433 (NULL for v3/v4/v5)
 
--- Compare UUIDs (-1, 0, or 1)
-SELECT UUID_COMPARE('550e8400-e29b-41d4-a716-446655440000',
-                     '6ba7b810-9dad-11d1-80b4-00c04fd430c8');
-```
-
-### UUID Type
-The extension provides a custom `UUID` type for efficient storage:
-```sql
--- Create table with UUID column
-CREATE TABLE users (
-    id UUID PRIMARY KEY,
-    name VARCHAR(100)
-);
-
--- Insert with generated UUID
-INSERT INTO users VALUES (UUID_V4(), 'John Doe');
+-- Compare two UUID columns (-1, 0, or 1)
+SELECT UUID_COMPARE(a.id, b.id) FROM users a, users b
+WHERE a.name = 'Alice' AND b.name = 'Bob';
 ```
 
 ## Testing
