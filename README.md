@@ -143,19 +143,19 @@ This method assumes you have successfully run `make install` to install the VEB 
 **Linux:**
 ```bash
 cd $HOME/build/villagesql/mysql-test
-perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test
 
 # Run individual test
-perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test uuid_basic
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test uuid_basic
 ```
 
 **macOS:**
 ```bash
 cd ~/build/villagesql/mysql-test
-perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test
 
 # Run individual test
-perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test uuid_basic
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test uuid_basic
 ```
 
 **Option 2: Using a specific VEB file**
@@ -166,14 +166,14 @@ Use this to test a specific VEB build without installing it first:
 ```bash
 cd $HOME/build/villagesql/mysql-test
 VSQL_UUID_VEB=/path/to/vsql-uuid/build/vsql_uuid.veb \
-  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test
 ```
 
 **macOS:**
 ```bash
 cd ~/build/villagesql/mysql-test
 VSQL_UUID_VEB=/path/to/vsql-uuid/build/vsql_uuid.veb \
-  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test
 ```
 
 ## Development
@@ -185,7 +185,7 @@ vsql-uuid/
 │   └── uuid.cc              # VDF implementations, core UUID logic, and extension registration
 ├── cmake/
 │   └── FindVillageSQL.cmake # CMake module to locate VillageSQL SDK
-├── test/
+├── mysql-test/
 │   ├── t/                   # MTR test files
 │   └── r/                   # MTR expected results
 ├── manifest.json            # VEB package manifest

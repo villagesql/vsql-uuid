@@ -81,7 +81,7 @@ The code follows the Google C++ Style Guide, with a few exceptions:
 ## Testing
 
 The extension includes a comprehensive test suite using the MySQL Test Runner (MTR) framework:
-- **Test Location**: `test/` directory with `.test` files and expected `.result` files
+- **Test Location**: `mysql-test/` directory with `.test` files and expected `.result` files
 
 **Default: Using installed VEB**
 
@@ -89,7 +89,7 @@ This method assumes you have successfully run `make install` to install the VEB 
 
 ```bash
 cd /path/to/mysql-test
-perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test
 ```
 
 **Alternative: Using a specific VEB file**
@@ -99,7 +99,7 @@ Use this to test a specific VEB build without installing it first:
 ```bash
 cd /path/to/mysql-test
 VSQL_UUID_VEB=/path/to/vsql-uuid/build/vsql_uuid.veb \
-  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/test
+  perl mysql-test-run.pl --suite=/path/to/vsql-uuid/mysql-test
 ```
 
 ## Extension Installation
