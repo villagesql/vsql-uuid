@@ -530,10 +530,11 @@ void uuid_decode(CustomArg in, StringResult out) {
 // Compare: lexicographic comparison of binary UUIDs
 int uuid_compare(CustomArg a, CustomArg b) {
   auto sa = a.value(), sb = b.value();
-  size_t len = std::min(sa.size(), sb.size());
-  int r = memcmp(sa.data(), sb.data(), len);
-  if (r != 0) return r;
-  return (sa.size() < sb.size()) ? -1 : (sa.size() > sb.size()) ? 1 : 0;
+  // Both inputs must be exactly kUuidBinarySize bytes (guaranteed by persisted_length).
+  if (sa.size() != kUuidBinarySize || sb.size() != kUuidBinarySize) {
+    return (sa.size() < sb.size()) ? -1 : (sa.size() > sb.size()) ? 1 : 0;
+  }
+  return memcmp(sa.data(), sb.data(), kUuidBinarySize);
 }
 
 // =============================================================================
