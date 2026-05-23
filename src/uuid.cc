@@ -1,4 +1,18 @@
-// Copyright (c) 2025 VillageSQL Inc. and Contributors
+/* Copyright (c) 2025 VillageSQL Contributors
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, see <https://www.gnu.org/licenses/>.
+ */
 
 #include <villagesql/vsql.h>
 
@@ -501,9 +515,12 @@ using namespace uuid_funcs;
 // Encode (from_string): string -> 16-byte binary
 void uuid_encode(std::string_view from, CustomResult out) {
   auto buf = out.buffer();
-  if (buf.size() < kUuidBinarySize) { out.error("uuid encode: buffer too small"); return; }
+  if (buf.size() < kUuidBinarySize) {
+    out.error("uuid encode: buffer too small");
+    return;
+  }
   if (!parse_uuid_string(from.data(), from.size(),
-                         reinterpret_cast<unsigned char*>(buf.data()))) {
+                         reinterpret_cast<unsigned char *>(buf.data()))) {
     out.error("invalid UUID format");
     return;
   }
@@ -513,16 +530,23 @@ void uuid_encode(std::string_view from, CustomResult out) {
 // Decode (to_string): 16-byte binary -> 36-char string
 void uuid_decode(CustomArg in, StringResult out) {
   auto span = in.value();
-  if (span.size() < kUuidBinarySize) { out.error("uuid decode: unexpected buffer size"); return; }
+  if (span.size() < kUuidBinarySize) {
+    out.error("uuid decode: unexpected buffer size");
+    return;
+  }
   static const char hex_chars[] = "0123456789abcdef";
   auto buf = out.buffer();
-  if (buf.size() < kUuidStringMaxLength) { out.error("uuid decode: output buffer too small"); return; }
+  if (buf.size() < kUuidStringMaxLength) {
+    out.error("uuid decode: output buffer too small");
+    return;
+  }
   size_t pos = 0;
   for (size_t i = 0; i < kUuidBinarySize; ++i) {
     unsigned char byte = span.data()[i];
     buf.data()[pos++] = hex_chars[byte >> 4];
     buf.data()[pos++] = hex_chars[byte & 0x0F];
-    if (i == 3 || i == 5 || i == 7 || i == 9) buf.data()[pos++] = '-';
+    if (i == 3 || i == 5 || i == 7 || i == 9)
+      buf.data()[pos++] = '-';
   }
   out.set_length(kUuidStringMaxLength);
 }
@@ -530,7 +554,8 @@ void uuid_decode(CustomArg in, StringResult out) {
 // Compare: lexicographic comparison of binary UUIDs
 int uuid_compare(CustomArg a, CustomArg b) {
   auto sa = a.value(), sb = b.value();
-  // Both inputs must be exactly kUuidBinarySize bytes (guaranteed by persisted_length).
+  // Both inputs must be exactly kUuidBinarySize bytes (guaranteed by
+  // persisted_length).
   if (sa.size() != kUuidBinarySize || sb.size() != kUuidBinarySize) {
     return (sa.size() < sb.size()) ? -1 : (sa.size() > sb.size()) ? 1 : 0;
   }
@@ -541,7 +566,8 @@ int uuid_compare(CustomArg a, CustomArg b) {
 // VDF Implementations
 // =============================================================================
 
-static void copy_uuid_to_result(const unsigned char* binary_uuid, CustomResult& out) {
+static void copy_uuid_to_result(const unsigned char *binary_uuid,
+                                CustomResult &out) {
   auto buf = out.buffer();
   memcpy(buf.data(), binary_uuid, kUuidBinarySize);
   out.set_length(kUuidBinarySize);
@@ -549,18 +575,28 @@ static void copy_uuid_to_result(const unsigned char* binary_uuid, CustomResult& 
 
 void uuid_generate_v1_impl(CustomResult out) {
   unsigned char binary_uuid[kUuidBinarySize];
-  if (!generate_uuid_v1(binary_uuid, false)) { out.warning("Failed to generate UUID v1"); return; }
+  if (!generate_uuid_v1(binary_uuid, false)) {
+    out.warning("Failed to generate UUID v1");
+    return;
+  }
   copy_uuid_to_result(binary_uuid, out);
 }
 
 void uuid_generate_v1mc_impl(CustomResult out) {
   unsigned char binary_uuid[kUuidBinarySize];
-  if (!generate_uuid_v1(binary_uuid, true)) { out.warning("Failed to generate UUID v1mc"); return; }
+  if (!generate_uuid_v1(binary_uuid, true)) {
+    out.warning("Failed to generate UUID v1mc");
+    return;
+  }
   copy_uuid_to_result(binary_uuid, out);
 }
 
-void uuid_generate_v3_impl(StringArg ns_arg, StringArg name_arg, CustomResult out) {
-  if (ns_arg.is_null() || name_arg.is_null()) { out.set_null(); return; }
+void uuid_generate_v3_impl(StringArg ns_arg, StringArg name_arg,
+                           CustomResult out) {
+  if (ns_arg.is_null() || name_arg.is_null()) {
+    out.set_null();
+    return;
+  }
   unsigned char namespace_binary[kUuidBinarySize];
   auto ns = ns_arg.value();
   if (!parse_uuid_string(ns.data(), ns.size(), namespace_binary)) {
@@ -569,7 +605,8 @@ void uuid_generate_v3_impl(StringArg ns_arg, StringArg name_arg, CustomResult ou
   }
   unsigned char binary_uuid[kUuidBinarySize];
   auto name = name_arg.value();
-  if (!generate_uuid_v3(namespace_binary, name.data(), name.size(), binary_uuid)) {
+  if (!generate_uuid_v3(namespace_binary, name.data(), name.size(),
+                        binary_uuid)) {
     out.warning("Failed to generate UUID v3");
     return;
   }
@@ -578,12 +615,19 @@ void uuid_generate_v3_impl(StringArg ns_arg, StringArg name_arg, CustomResult ou
 
 void uuid_generate_v4_impl(CustomResult out) {
   unsigned char binary_uuid[kUuidBinarySize];
-  if (!generate_uuid_v4(binary_uuid)) { out.warning("Failed to generate UUID v4"); return; }
+  if (!generate_uuid_v4(binary_uuid)) {
+    out.warning("Failed to generate UUID v4");
+    return;
+  }
   copy_uuid_to_result(binary_uuid, out);
 }
 
-void uuid_generate_v5_impl(StringArg ns_arg, StringArg name_arg, CustomResult out) {
-  if (ns_arg.is_null() || name_arg.is_null()) { out.set_null(); return; }
+void uuid_generate_v5_impl(StringArg ns_arg, StringArg name_arg,
+                           CustomResult out) {
+  if (ns_arg.is_null() || name_arg.is_null()) {
+    out.set_null();
+    return;
+  }
   unsigned char namespace_binary[kUuidBinarySize];
   auto ns = ns_arg.value();
   if (!parse_uuid_string(ns.data(), ns.size(), namespace_binary)) {
@@ -592,7 +636,8 @@ void uuid_generate_v5_impl(StringArg ns_arg, StringArg name_arg, CustomResult ou
   }
   unsigned char binary_uuid[kUuidBinarySize];
   auto name = name_arg.value();
-  if (!generate_uuid_v5(namespace_binary, name.data(), name.size(), binary_uuid)) {
+  if (!generate_uuid_v5(namespace_binary, name.data(), name.size(),
+                        binary_uuid)) {
     out.warning("Failed to generate UUID v5");
     return;
   }
@@ -601,24 +646,36 @@ void uuid_generate_v5_impl(StringArg ns_arg, StringArg name_arg, CustomResult ou
 
 void uuid_generate_v6_impl(CustomResult out) {
   unsigned char binary_uuid[kUuidBinarySize];
-  if (!generate_uuid_v6(binary_uuid, false)) { out.warning("Failed to generate UUID v6"); return; }
+  if (!generate_uuid_v6(binary_uuid, false)) {
+    out.warning("Failed to generate UUID v6");
+    return;
+  }
   copy_uuid_to_result(binary_uuid, out);
 }
 
 void uuid_generate_v7_impl(CustomResult out) {
   unsigned char binary_uuid[kUuidBinarySize];
-  if (!generate_uuid_v7(binary_uuid)) { out.warning("Failed to generate UUID v7"); return; }
+  if (!generate_uuid_v7(binary_uuid)) {
+    out.warning("Failed to generate UUID v7");
+    return;
+  }
   copy_uuid_to_result(binary_uuid, out);
 }
 
 void uuid_version_impl(CustomArg arg, IntResult out) {
-  if (arg.is_null()) { out.set_null(); return; }
+  if (arg.is_null()) {
+    out.set_null();
+    return;
+  }
   out.set((arg.value().data()[6] >> 4) & 0x0F);
 }
 
 void uuid_timestamp_impl(CustomArg arg, StringResult out) {
-  if (arg.is_null()) { out.set_null(); return; }
-  const unsigned char* binary_uuid = arg.value().data();
+  if (arg.is_null()) {
+    out.set_null();
+    return;
+  }
+  const unsigned char *binary_uuid = arg.value().data();
   int version = (binary_uuid[6] >> 4) & 0x0F;
   time_t unix_seconds;
 
@@ -633,8 +690,12 @@ void uuid_timestamp_impl(CustomArg arg, StringResult out) {
                        static_cast<uint64_t>(binary_uuid[7]);
     uint64_t timestamp = (time_hi << 48) | (time_mid << 32) | time_low;
     const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
-    if (timestamp < uuid_epoch_offset) { out.set_null(); return; }
-    unix_seconds = static_cast<time_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+    if (timestamp < uuid_epoch_offset) {
+      out.set_null();
+      return;
+    }
+    unix_seconds =
+        static_cast<time_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
   } else if (version == 6) {
     uint64_t timestamp =
         (static_cast<uint64_t>(binary_uuid[0]) << 52) |
@@ -646,8 +707,12 @@ void uuid_timestamp_impl(CustomArg arg, StringResult out) {
         (static_cast<uint64_t>(binary_uuid[6] & 0x0F) << 8) |
         static_cast<uint64_t>(binary_uuid[7]);
     const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
-    if (timestamp < uuid_epoch_offset) { out.set_null(); return; }
-    unix_seconds = static_cast<time_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+    if (timestamp < uuid_epoch_offset) {
+      out.set_null();
+      return;
+    }
+    unix_seconds =
+        static_cast<time_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
   } else if (version == 7) {
     uint64_t unix_ts_ms =
         (static_cast<uint64_t>(binary_uuid[0]) << 40) |
@@ -658,20 +723,30 @@ void uuid_timestamp_impl(CustomArg arg, StringResult out) {
         static_cast<uint64_t>(binary_uuid[5]);
     unix_seconds = static_cast<time_t>(unix_ts_ms / 1000);
   } else {
-    out.set_null(); return;
+    out.set_null();
+    return;
   }
 
   struct tm tm_buf;
-  if (gmtime_r(&unix_seconds, &tm_buf) == nullptr) { out.set_null(); return; }
+  if (gmtime_r(&unix_seconds, &tm_buf) == nullptr) {
+    out.set_null();
+    return;
+  }
   char buf[20];
   size_t len = strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_buf);
-  if (len == 0) { out.set_null(); return; }
+  if (len == 0) {
+    out.set_null();
+    return;
+  }
   out.set(std::string_view(buf, len));
 }
 
 void uuid_epoch_impl(CustomArg arg, IntResult out) {
-  if (arg.is_null()) { out.set_null(); return; }
-  const unsigned char* binary_uuid = arg.value().data();
+  if (arg.is_null()) {
+    out.set_null();
+    return;
+  }
+  const unsigned char *binary_uuid = arg.value().data();
   int version = (binary_uuid[6] >> 4) & 0x0F;
   int64_t unix_seconds;
 
@@ -686,8 +761,12 @@ void uuid_epoch_impl(CustomArg arg, IntResult out) {
                        static_cast<uint64_t>(binary_uuid[7]);
     uint64_t timestamp = (time_hi << 48) | (time_mid << 32) | time_low;
     const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
-    if (timestamp < uuid_epoch_offset) { out.set_null(); return; }
-    unix_seconds = static_cast<int64_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+    if (timestamp < uuid_epoch_offset) {
+      out.set_null();
+      return;
+    }
+    unix_seconds =
+        static_cast<int64_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
   } else if (version == 6) {
     uint64_t timestamp =
         (static_cast<uint64_t>(binary_uuid[0]) << 52) |
@@ -699,8 +778,12 @@ void uuid_epoch_impl(CustomArg arg, IntResult out) {
         (static_cast<uint64_t>(binary_uuid[6] & 0x0F) << 8) |
         static_cast<uint64_t>(binary_uuid[7]);
     const uint64_t uuid_epoch_offset = 0x01B21DD213814000ULL;
-    if (timestamp < uuid_epoch_offset) { out.set_null(); return; }
-    unix_seconds = static_cast<int64_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
+    if (timestamp < uuid_epoch_offset) {
+      out.set_null();
+      return;
+    }
+    unix_seconds =
+        static_cast<int64_t>((timestamp - uuid_epoch_offset) / 10000000ULL);
   } else if (version == 7) {
     uint64_t unix_ts_ms =
         (static_cast<uint64_t>(binary_uuid[0]) << 40) |
@@ -711,14 +794,18 @@ void uuid_epoch_impl(CustomArg arg, IntResult out) {
         static_cast<uint64_t>(binary_uuid[5]);
     unix_seconds = static_cast<int64_t>(unix_ts_ms / 1000);
   } else {
-    out.set_null(); return;
+    out.set_null();
+    return;
   }
 
   out.set(unix_seconds);
 }
 
 void uuid_compare_impl(CustomArg a, CustomArg b, IntResult out) {
-  if (a.is_null() || b.is_null()) { out.set_null(); return; }
+  if (a.is_null() || b.is_null()) {
+    out.set_null();
+    return;
+  }
   int cmp = memcmp(a.value().data(), b.value().data(), kUuidBinarySize);
   out.set((cmp < 0) ? -1 : (cmp > 0) ? 1 : 0);
 }
@@ -738,39 +825,64 @@ constexpr auto UUID =
         .build();
 
 VEF_GENERATE_ENTRY_POINTS(
-  make_extension()
-    .type(UUID)
+    make_extension()
+        .type(UUID)
 
-    .func(make_func<&uuid_generate_v1_impl>("UUID_V1")
-      .returns(UUID).no_params().build())
+        .func(make_func<&uuid_generate_v1_impl>("UUID_V1")
+                  .returns(UUID)
+                  .no_params()
+                  .build())
 
-    .func(make_func<&uuid_generate_v1mc_impl>("UUID_V1MC")
-      .returns(UUID).no_params().build())
+        .func(make_func<&uuid_generate_v1mc_impl>("UUID_V1MC")
+                  .returns(UUID)
+                  .no_params()
+                  .build())
 
-    .func(make_func<&uuid_generate_v3_impl>("UUID_V3")
-      .returns(UUID).param(STRING).param(STRING).build())
+        .func(make_func<&uuid_generate_v3_impl>("UUID_V3")
+                  .returns(UUID)
+                  .param(STRING)
+                  .param(STRING)
+                  .build())
 
-    .func(make_func<&uuid_generate_v4_impl>("UUID_V4")
-      .returns(UUID).no_params().build())
+        .func(make_func<&uuid_generate_v4_impl>("UUID_V4")
+                  .returns(UUID)
+                  .no_params()
+                  .build())
 
-    .func(make_func<&uuid_generate_v5_impl>("UUID_V5")
-      .returns(UUID).param(STRING).param(STRING).build())
+        .func(make_func<&uuid_generate_v5_impl>("UUID_V5")
+                  .returns(UUID)
+                  .param(STRING)
+                  .param(STRING)
+                  .build())
 
-    .func(make_func<&uuid_generate_v6_impl>("UUID_V6")
-      .returns(UUID).no_params().build())
+        .func(make_func<&uuid_generate_v6_impl>("UUID_V6")
+                  .returns(UUID)
+                  .no_params()
+                  .build())
 
-    .func(make_func<&uuid_generate_v7_impl>("UUID_V7")
-      .returns(UUID).no_params().build())
+        .func(make_func<&uuid_generate_v7_impl>("UUID_V7")
+                  .returns(UUID)
+                  .no_params()
+                  .build())
 
-    .func(make_func<&uuid_compare_impl>("UUID_COMPARE")
-      .returns(INT).param(UUID).param(UUID).build())
+        .func(make_func<&uuid_compare_impl>("UUID_COMPARE")
+                  .returns(INT)
+                  .param(UUID)
+                  .param(UUID)
+                  .build())
 
-    .func(make_func<&uuid_version_impl>("UUID_VERSION")
-      .returns(INT).param(UUID).build())
+        .func(make_func<&uuid_version_impl>("UUID_VERSION")
+                  .returns(INT)
+                  .param(UUID)
+                  .build())
 
-    .func(make_func<&uuid_timestamp_impl>("UUID_TIMESTAMP")
-      .returns(STRING).param(UUID).buffer_size(20).build())
+        .func(make_func<&uuid_timestamp_impl>("UUID_TIMESTAMP")
+                  .returns(STRING)
+                  .param(UUID)
+                  .buffer_size(20)
+                  .build())
 
-    .func(make_func<&uuid_epoch_impl>("UUID_EPOCH")
-      .returns(INT).param(UUID).build())
-)
+        .func(make_func<&uuid_epoch_impl>("UUID_EPOCH")
+                  .returns(INT)
+                  .param(UUID)
+                  .build()))
