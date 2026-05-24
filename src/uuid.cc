@@ -540,13 +540,14 @@ void uuid_decode(CustomArg in, StringResult out) {
     out.error("uuid decode: output buffer too small");
     return;
   }
+  char *out_buf = buf.data();
   size_t pos = 0;
   for (size_t i = 0; i < kUuidBinarySize; ++i) {
     unsigned char byte = span.data()[i];
-    buf.data()[pos++] = hex_chars[byte >> 4];
-    buf.data()[pos++] = hex_chars[byte & 0x0F];
+    out_buf[pos++] = hex_chars[byte >> 4];
+    out_buf[pos++] = hex_chars[byte & 0x0F];
     if (i == 3 || i == 5 || i == 7 || i == 9)
-      buf.data()[pos++] = '-';
+      out_buf[pos++] = '-';
   }
   out.set_length(kUuidStringMaxLength);
 }
