@@ -128,6 +128,14 @@ SELECT UUID_EPOCH(id) FROM events;
 -- Compare two UUID columns (-1, 0, or 1)
 SELECT UUID_COMPARE(a.id, b.id) FROM users a, users b
 WHERE a.name = 'Alice' AND b.name = 'Bob';
+
+-- Introspection functions are deterministic — usable in generated columns
+-- and CHECK constraints:
+CREATE TABLE audit_log (
+  id uuid NOT NULL,
+  ver INT AS (UUID_VERSION(id)) STORED,
+  CHECK (UUID_VERSION(id) IN (4, 7))  -- only v4 or v7 UUIDs allowed
+);
 ```
 
 ## Testing
