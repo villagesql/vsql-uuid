@@ -155,4 +155,53 @@ is_valid	name
 1	generated_v6
 1	generated_v7
 DROP TABLE uuid_test;
+#
+# VEF added deterministic(bool) after this extension shipped. Marking
+# pure introspection functions deterministic(true) lets them appear in
+# generated columns and CHECK constraints — the server rejects non-
+# deterministic VDFs in both contexts.
+#
+CREATE TABLE t_deterministic (
+id uuid NOT NULL,
+ver INT AS (UUID_VERSION(id)) STORED,
+CHECK (UUID_VERSION(id) IN (1, 3, 4, 5, 6, 7))
+);
+INSERT INTO t_deterministic (id) VALUES
+('550e8400-e29b-41d4-a716-446655440000');
+SELECT ver FROM t_deterministic;
+ver
+4
+CREATE TABLE t_compare_check (
+a uuid NOT NULL,
+b uuid NOT NULL,
+CHECK (UUID_COMPARE(a, b) != 0)
+);
+INSERT INTO t_compare_check VALUES
+('550e8400-e29b-41d4-a716-446655440000',
+'550e8400-e29b-41d4-a716-446655440001');
+SELECT COUNT(*) FROM t_compare_check;
+COUNT(*)
+1
+DROP TABLE t_compare_check;
+CREATE TABLE t_timestamp_det (
+id uuid NOT NULL,
+ts VARCHAR(25) AS (UUID_TIMESTAMP(id)) STORED
+);
+INSERT INTO t_timestamp_det (id) VALUES
+('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
+SELECT ts IS NOT NULL AS has_ts FROM t_timestamp_det;
+has_ts
+1
+DROP TABLE t_timestamp_det;
+CREATE TABLE t_epoch_det (
+id uuid NOT NULL,
+ep INT AS (UUID_EPOCH(id)) STORED
+);
+INSERT INTO t_epoch_det (id) VALUES
+('6ba7b810-9dad-11d1-80b4-00c04fd430c8');
+SELECT ep IS NOT NULL AS has_ep FROM t_epoch_det;
+has_ep
+1
+DROP TABLE t_epoch_det;
+DROP TABLE t_deterministic;
 UNINSTALL EXTENSION vsql_uuid;
