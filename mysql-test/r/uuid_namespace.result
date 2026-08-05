@@ -1,0 +1,61 @@
+INSTALL EXTENSION vsql_uuid;
+#
+# The four namespace accessors return the fixed RFC 9562 namespace UUIDs
+#
+SELECT UUID_NS_DNS() AS ns_dns;
+ns_dns
+6ba7b810-9dad-11d1-80b4-00c04fd430c8
+SELECT UUID_NS_URL() AS ns_url;
+ns_url
+6ba7b811-9dad-11d1-80b4-00c04fd430c8
+SELECT UUID_NS_OID() AS ns_oid;
+ns_oid
+6ba7b812-9dad-11d1-80b4-00c04fd430c8
+SELECT UUID_NS_X500() AS ns_x500;
+ns_x500
+6ba7b814-9dad-11d1-80b4-00c04fd430c8
+#
+# Namespace accessors return text, so they feed UUID_V3 and UUID_V5
+# directly and produce the same values as a literal namespace string
+#
+SELECT UUID_V3(UUID_NS_DNS(), 'example.com') AS v3_via_accessor;
+v3_via_accessor
+9073926b-929f-31c2-abc9-fad77ae3e8eb
+SELECT UUID_V3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com') AS v3_via_literal;
+v3_via_literal
+9073926b-929f-31c2-abc9-fad77ae3e8eb
+SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS v5_via_accessor;
+v5_via_accessor
+cfbff0d1-9375-5685-968c-48ce8b15ae17
+SELECT UUID_V5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com') AS v5_via_literal;
+v5_via_literal
+cfbff0d1-9375-5685-968c-48ce8b15ae17
+SELECT UUID_COMPARE(a.u, b.u) AS same_namespace_same_value
+FROM (SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS u) a,
+(SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS u) b;
+same_namespace_same_value
+0
+SELECT UUID_COMPARE(a.u, b.u) <> 0 AS different_namespace_differs
+FROM (SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS u) a,
+(SELECT UUID_V5(UUID_NS_URL(), 'example.com') AS u) b;
+different_namespace_differs
+1
+#
+# The Nil and Max UUIDs from RFC 9562
+#
+SELECT UUID_NIL() AS nil_uuid;
+nil_uuid
+00000000-0000-0000-0000-000000000000
+SELECT UUID_MAX() AS max_uuid;
+max_uuid
+ffffffff-ffff-ffff-ffff-ffffffffffff
+SELECT UUID_COMPARE(UUID_NIL(), UUID_V4()) AS nil_is_lowest;
+nil_is_lowest
+-1
+SELECT UUID_COMPARE(UUID_MAX(), UUID_V4()) AS max_is_highest;
+max_is_highest
+1
+#
+# Cleanup
+#
+UNINSTALL EXTENSION vsql_uuid;

@@ -1,0 +1,172 @@
+INSTALL EXTENSION vsql_uuid;
+#
+# UUID_IS_VALID accepts every textual form a uuid column accepts
+#
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-446655440000') AS hyphenated;
+hyphenated
+1
+SELECT UUID_IS_VALID('550e8400e29b41d4a716446655440000') AS bare;
+bare
+1
+SELECT UUID_IS_VALID('{550e8400-e29b-41d4-a716-446655440000}') AS braced;
+braced
+1
+SELECT UUID_IS_VALID('550E8400-E29B-41D4-A716-446655440000') AS uppercase;
+uppercase
+1
+#
+# UUID_IS_VALID reports malformed input as 0 rather than raising
+#
+SELECT UUID_IS_VALID('not-a-uuid') AS not_a_uuid;
+not_a_uuid
+0
+SELECT UUID_IS_VALID('') AS empty_string;
+empty_string
+0
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-44665544000') AS one_char_short;
+one_char_short
+0
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-4466554400000') AS one_char_long;
+one_char_long
+0
+SELECT UUID_IS_VALID('550e8400xe29bx41d4xa716x446655440000') AS wrong_separators;
+wrong_separators
+0
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-44665544000g') AS non_hex_digit;
+non_hex_digit
+0
+SELECT UUID_IS_VALID('[550e8400-e29b-41d4-a716-446655440000]') AS wrong_brackets;
+wrong_brackets
+0
+SELECT UUID_IS_VALID(NULL) IS NULL AS null_input;
+null_input
+1
+#
+# UUID_IS_VALID agrees with what a uuid column will accept
+#
+CREATE TEMPORARY TABLE t_forms (id INT PRIMARY KEY, u UUID);
+INSERT INTO t_forms VALUES
+(1, '550e8400e29b41d4a716446655440000'),
+(2, '550e8400-e29b-41d4-a716-446655440000'),
+(3, '{550e8400-e29b-41d4-a716-446655440000}');
+SELECT id, u FROM t_forms ORDER BY id;
+id	u
+1	550e8400-e29b-41d4-a716-446655440000
+2	550e8400-e29b-41d4-a716-446655440000
+3	550e8400-e29b-41d4-a716-446655440000
+SELECT COUNT(DISTINCT u) AS distinct_stored_values FROM t_forms;
+distinct_stored_values
+1
+INSERT INTO t_forms VALUES (4, 'not-a-uuid');
+ERROR HY000: Incorrect uuid value: 'not-a-uuid' for column 'u' at row 1
+DROP TABLE t_forms;
+#
+# A malformed namespace argument fails the statement
+#
+SELECT UUID_V3('nope', 'example.com');
+ERROR HY000: VDF error in function 'UUID_V3': UUID_V3: invalid namespace UUID format
+SELECT UUID_V5('nope', 'example.com');
+ERROR HY000: VDF error in function 'UUID_V5': UUID_V5: invalid namespace UUID format
+SELECT UUID_V3(NULL, 'example.com') IS NULL AS v3_null_namespace;
+v3_null_namespace
+1
+SELECT UUID_V3(UUID_NS_DNS(), NULL) IS NULL AS v3_null_name;
+v3_null_name
+1
+SELECT UUID_V5(NULL, 'example.com') IS NULL AS v5_null_namespace;
+v5_null_namespace
+1
+SELECT UUID_V5(UUID_NS_DNS(), NULL) IS NULL AS v5_null_name;
+v5_null_name
+1
+#
+# Repeated generation yields distinct values
+#
+SET SESSION cte_max_recursion_depth = 2000;
+CREATE TEMPORARY TABLE t_bulk (u UUID);
+INSERT INTO t_bulk
+WITH RECURSIVE seq(n) AS (
+SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1000
+)
+SELECT UUID_V1() FROM seq;
+SELECT COUNT(*) AS row_count, COUNT(DISTINCT u) AS distinct_v1 FROM t_bulk;
+row_count	distinct_v1
+1000	1000
+DELETE FROM t_bulk;
+INSERT INTO t_bulk
+WITH RECURSIVE seq(n) AS (
+SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1000
+)
+SELECT UUID_V6() FROM seq;
+SELECT COUNT(*) AS row_count, COUNT(DISTINCT u) AS distinct_v6 FROM t_bulk;
+row_count	distinct_v6
+1000	1000
+DELETE FROM t_bulk;
+INSERT INTO t_bulk
+WITH RECURSIVE seq(n) AS (
+SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1000
+)
+SELECT UUID_V4() FROM seq;
+SELECT COUNT(*) AS row_count, COUNT(DISTINCT u) AS distinct_v4 FROM t_bulk;
+row_count	distinct_v4
+1000	1000
+DROP TABLE t_bulk;
+#
+# Deterministic functions are accepted in generated columns and checks
+#
+CREATE TABLE t_constrained (
+id UUID NOT NULL,
+ver INT AS (UUID_VERSION(id)) STORED,
+CHECK (UUID_VERSION(id) IN (4, 7))
+);
+INSERT INTO t_constrained (id) VALUES (UUID_V4()), (UUID_V7());
+SELECT ver FROM t_constrained ORDER BY ver;
+ver
+4
+7
+INSERT INTO t_constrained (id) VALUES (UUID_V1());
+ERROR HY000: Check constraint 't_constrained_chk_1' is violated.
+DROP TABLE t_constrained;
+CREATE TABLE t_valid_check (
+s VARCHAR(40),
+CHECK (UUID_IS_VALID(s) = 1)
+);
+INSERT INTO t_valid_check VALUES ('550e8400-e29b-41d4-a716-446655440000');
+INSERT INTO t_valid_check VALUES ('nope');
+ERROR HY000: Check constraint 't_valid_check_chk_1' is violated.
+SELECT COUNT(*) AS accepted_rows FROM t_valid_check;
+accepted_rows
+1
+DROP TABLE t_valid_check;
+#
+# A uuid column added to an existing table backfills the zero UUID
+#
+CREATE TABLE t_backfill (id INT PRIMARY KEY);
+INSERT INTO t_backfill VALUES (1), (2);
+ALTER TABLE t_backfill ADD COLUMN u UUID NOT NULL;
+SELECT id, u FROM t_backfill ORDER BY id;
+id	u
+1	00000000-0000-0000-0000-000000000000
+2	00000000-0000-0000-0000-000000000000
+DROP TABLE t_backfill;
+#
+# Aggregates over a uuid column
+#
+CREATE TEMPORARY TABLE t_agg (id INT PRIMARY KEY, u UUID);
+INSERT INTO t_agg VALUES
+(1, '00000000-0000-4000-8000-000000000000'),
+(2, '550e8400-e29b-41d4-a716-446655440000'),
+(3, 'ffffffff-ffff-4fff-bfff-ffffffffffff');
+SELECT MIN(u) AS lowest, MAX(u) AS highest FROM t_agg;
+lowest	highest
+00000000-0000-4000-8000-000000000000	ffffffff-ffff-4fff-bfff-ffffffffffff
+SELECT COUNT(DISTINCT u) AS distinct_values FROM t_agg;
+distinct_values
+3
+SELECT SUM(u) FROM t_agg;
+ERROR HY000: Incorrect usage of sum and uuid
+DROP TABLE t_agg;
+#
+# Cleanup
+#
+UNINSTALL EXTENSION vsql_uuid;

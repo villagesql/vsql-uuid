@@ -1,0 +1,168 @@
+# Setup: Copy VEB to veb_dir if VSQL_UUID_VEB is set, then install extension
+--let $veb_dest = `SELECT CONCAT(@@veb_dir, '/vsql_uuid.veb')`
+if ($VSQL_UUID_VEB) {
+  --error 0,1
+  --remove_file $veb_dest
+  --copy_file $VSQL_UUID_VEB $veb_dest
+}
+INSTALL EXTENSION vsql_uuid;
+
+--echo #
+--echo # UUID_IS_VALID accepts every textual form a uuid column accepts
+--echo #
+
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-446655440000') AS hyphenated;
+SELECT UUID_IS_VALID('550e8400e29b41d4a716446655440000') AS bare;
+SELECT UUID_IS_VALID('{550e8400-e29b-41d4-a716-446655440000}') AS braced;
+SELECT UUID_IS_VALID('550E8400-E29B-41D4-A716-446655440000') AS uppercase;
+
+--echo #
+--echo # UUID_IS_VALID reports malformed input as 0 rather than raising
+--echo #
+
+SELECT UUID_IS_VALID('not-a-uuid') AS not_a_uuid;
+SELECT UUID_IS_VALID('') AS empty_string;
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-44665544000') AS one_char_short;
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-4466554400000') AS one_char_long;
+SELECT UUID_IS_VALID('550e8400xe29bx41d4xa716x446655440000') AS wrong_separators;
+SELECT UUID_IS_VALID('550e8400-e29b-41d4-a716-44665544000g') AS non_hex_digit;
+SELECT UUID_IS_VALID('[550e8400-e29b-41d4-a716-446655440000]') AS wrong_brackets;
+SELECT UUID_IS_VALID(NULL) IS NULL AS null_input;
+
+--echo #
+--echo # UUID_IS_VALID agrees with what a uuid column will accept
+--echo #
+
+CREATE TEMPORARY TABLE t_forms (id INT PRIMARY KEY, u UUID);
+
+# All three accepted forms of one value store the same 16 bytes.
+INSERT INTO t_forms VALUES
+  (1, '550e8400e29b41d4a716446655440000'),
+  (2, '550e8400-e29b-41d4-a716-446655440000'),
+  (3, '{550e8400-e29b-41d4-a716-446655440000}');
+
+SELECT id, u FROM t_forms ORDER BY id;
+SELECT COUNT(DISTINCT u) AS distinct_stored_values FROM t_forms;
+
+# A string UUID_IS_VALID rejects is also rejected by the column.
+--error ER_TRUNCATED_WRONG_VALUE_FOR_FIELD
+INSERT INTO t_forms VALUES (4, 'not-a-uuid');
+
+DROP TABLE t_forms;
+
+--echo #
+--echo # A malformed namespace argument fails the statement
+--echo #
+
+# 3200 is the error a VillageSQL defined function raises for invalid input.
+--error 3200
+SELECT UUID_V3('nope', 'example.com');
+--error 3200
+SELECT UUID_V5('nope', 'example.com');
+
+# NULL arguments propagate as NULL instead of failing.
+SELECT UUID_V3(NULL, 'example.com') IS NULL AS v3_null_namespace;
+SELECT UUID_V3(UUID_NS_DNS(), NULL) IS NULL AS v3_null_name;
+SELECT UUID_V5(NULL, 'example.com') IS NULL AS v5_null_namespace;
+SELECT UUID_V5(UUID_NS_DNS(), NULL) IS NULL AS v5_null_name;
+
+--echo #
+--echo # Repeated generation yields distinct values
+--echo #
+
+SET SESSION cte_max_recursion_depth = 2000;
+
+CREATE TEMPORARY TABLE t_bulk (u UUID);
+
+INSERT INTO t_bulk
+WITH RECURSIVE seq(n) AS (
+  SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1000
+)
+SELECT UUID_V1() FROM seq;
+SELECT COUNT(*) AS row_count, COUNT(DISTINCT u) AS distinct_v1 FROM t_bulk;
+
+DELETE FROM t_bulk;
+INSERT INTO t_bulk
+WITH RECURSIVE seq(n) AS (
+  SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1000
+)
+SELECT UUID_V6() FROM seq;
+SELECT COUNT(*) AS row_count, COUNT(DISTINCT u) AS distinct_v6 FROM t_bulk;
+
+DELETE FROM t_bulk;
+INSERT INTO t_bulk
+WITH RECURSIVE seq(n) AS (
+  SELECT 1 UNION ALL SELECT n + 1 FROM seq WHERE n < 1000
+)
+SELECT UUID_V4() FROM seq;
+SELECT COUNT(*) AS row_count, COUNT(DISTINCT u) AS distinct_v4 FROM t_bulk;
+
+DROP TABLE t_bulk;
+
+--echo #
+--echo # Deterministic functions are accepted in generated columns and checks
+--echo #
+
+CREATE TABLE t_constrained (
+  id UUID NOT NULL,
+  ver INT AS (UUID_VERSION(id)) STORED,
+  CHECK (UUID_VERSION(id) IN (4, 7))
+);
+
+INSERT INTO t_constrained (id) VALUES (UUID_V4()), (UUID_V7());
+SELECT ver FROM t_constrained ORDER BY ver;
+
+# A version the check constraint excludes is rejected.
+--error ER_CHECK_CONSTRAINT_VIOLATED
+INSERT INTO t_constrained (id) VALUES (UUID_V1());
+
+DROP TABLE t_constrained;
+
+CREATE TABLE t_valid_check (
+  s VARCHAR(40),
+  CHECK (UUID_IS_VALID(s) = 1)
+);
+
+INSERT INTO t_valid_check VALUES ('550e8400-e29b-41d4-a716-446655440000');
+
+--error ER_CHECK_CONSTRAINT_VIOLATED
+INSERT INTO t_valid_check VALUES ('nope');
+
+SELECT COUNT(*) AS accepted_rows FROM t_valid_check;
+
+DROP TABLE t_valid_check;
+
+--echo #
+--echo # A uuid column added to an existing table backfills the zero UUID
+--echo #
+
+CREATE TABLE t_backfill (id INT PRIMARY KEY);
+INSERT INTO t_backfill VALUES (1), (2);
+ALTER TABLE t_backfill ADD COLUMN u UUID NOT NULL;
+SELECT id, u FROM t_backfill ORDER BY id;
+DROP TABLE t_backfill;
+
+--echo #
+--echo # Aggregates over a uuid column
+--echo #
+
+CREATE TEMPORARY TABLE t_agg (id INT PRIMARY KEY, u UUID);
+INSERT INTO t_agg VALUES
+  (1, '00000000-0000-4000-8000-000000000000'),
+  (2, '550e8400-e29b-41d4-a716-446655440000'),
+  (3, 'ffffffff-ffff-4fff-bfff-ffffffffffff');
+
+SELECT MIN(u) AS lowest, MAX(u) AS highest FROM t_agg;
+SELECT COUNT(DISTINCT u) AS distinct_values FROM t_agg;
+
+# Arithmetic aggregates are not defined for the uuid type.
+--error ER_WRONG_USAGE
+SELECT SUM(u) FROM t_agg;
+
+DROP TABLE t_agg;
+
+--echo #
+--echo # Cleanup
+--echo #
+
+UNINSTALL EXTENSION vsql_uuid;

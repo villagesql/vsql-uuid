@@ -1,0 +1,54 @@
+# Setup: Copy VEB to veb_dir if VSQL_UUID_VEB is set, then install extension
+--let $veb_dest = `SELECT CONCAT(@@veb_dir, '/vsql_uuid.veb')`
+if ($VSQL_UUID_VEB) {
+  --error 0,1
+  --remove_file $veb_dest
+  --copy_file $VSQL_UUID_VEB $veb_dest
+}
+INSTALL EXTENSION vsql_uuid;
+
+--echo #
+--echo # The four namespace accessors return the fixed RFC 9562 namespace UUIDs
+--echo #
+
+SELECT UUID_NS_DNS() AS ns_dns;
+SELECT UUID_NS_URL() AS ns_url;
+SELECT UUID_NS_OID() AS ns_oid;
+SELECT UUID_NS_X500() AS ns_x500;
+
+--echo #
+--echo # Namespace accessors return text, so they feed UUID_V3 and UUID_V5
+--echo # directly and produce the same values as a literal namespace string
+--echo #
+
+SELECT UUID_V3(UUID_NS_DNS(), 'example.com') AS v3_via_accessor;
+SELECT UUID_V3('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com') AS v3_via_literal;
+SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS v5_via_accessor;
+SELECT UUID_V5('6ba7b810-9dad-11d1-80b4-00c04fd430c8', 'example.com') AS v5_via_literal;
+
+# Name-based UUIDs are reproducible: the same namespace and name always give
+# the same value, and a different namespace gives a different one.
+SELECT UUID_COMPARE(a.u, b.u) AS same_namespace_same_value
+FROM (SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS u) a,
+     (SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS u) b;
+
+SELECT UUID_COMPARE(a.u, b.u) <> 0 AS different_namespace_differs
+FROM (SELECT UUID_V5(UUID_NS_DNS(), 'example.com') AS u) a,
+     (SELECT UUID_V5(UUID_NS_URL(), 'example.com') AS u) b;
+
+--echo #
+--echo # The Nil and Max UUIDs from RFC 9562
+--echo #
+
+SELECT UUID_NIL() AS nil_uuid;
+SELECT UUID_MAX() AS max_uuid;
+
+# Nil sorts below and Max sorts above any generated value.
+SELECT UUID_COMPARE(UUID_NIL(), UUID_V4()) AS nil_is_lowest;
+SELECT UUID_COMPARE(UUID_MAX(), UUID_V4()) AS max_is_highest;
+
+--echo #
+--echo # Cleanup
+--echo #
+
+UNINSTALL EXTENSION vsql_uuid;
