@@ -111,7 +111,7 @@ cd /path/to/vsql-uuid && git diff mysql-test/r/
 | `mysql-test/t/uuid_compare.test` | `UUID_COMPARE` ordering, equality, and NULL handling |
 | `mysql-test/t/uuid_type.test` | The `uuid` type itself: column storage, round-tripping, generation functions, version and variant bits |
 | `mysql-test/t/uuid_namespace.test` | `UUID_NS_DNS`/`URL`/`OID`/`X500`, `UUID_NIL`, `UUID_MAX`, and name-based generation composed from the namespace accessors |
-| `mysql-test/t/uuid_validate.test` | `UUID_IS_VALID` across accepted and rejected string forms, malformed-namespace errors, NULL propagation, bulk-generation uniqueness, generated columns and CHECK constraints, `ADD COLUMN` backfill, and aggregate behavior |
+| `mysql-test/t/uuid_validate.test` | `UUID_IS_VALID` across accepted and rejected string forms, malformed-namespace warnings, NULL propagation, bulk-generation uniqueness, generated columns and CHECK constraints, `ADD COLUMN` backfill, and aggregate behavior |
 
 ## Writing tests
 

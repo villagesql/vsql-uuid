@@ -51,14 +51,18 @@ INSERT INTO t_forms VALUES (4, 'not-a-uuid');
 DROP TABLE t_forms;
 
 --echo #
---echo # A malformed namespace argument fails the statement
+--echo # A malformed namespace argument yields NULL and a warning, not an error
 --echo #
 
-# 3200 is the error a VillageSQL defined function raises for invalid input.
---error 3200
-SELECT UUID_V3('nope', 'example.com');
---error 3200
-SELECT UUID_V5('nope', 'example.com');
+# Bad input data must not abort the statement, so a SELECT over a mix of good
+# and bad namespaces still returns its good rows.
+SELECT UUID_V3('nope', 'example.com') IS NULL AS v3_bad_namespace;
+SELECT UUID_V5('nope', 'example.com') IS NULL AS v5_bad_namespace;
+
+CREATE TABLE t_ns (id INT PRIMARY KEY, ns VARCHAR(64));
+INSERT INTO t_ns VALUES (1, '6ba7b810-9dad-11d1-80b4-00c04fd430c8'), (2, 'nope');
+SELECT id, UUID_V5(ns, 'example.com') IS NULL AS is_null FROM t_ns ORDER BY id;
+DROP TABLE t_ns;
 
 # NULL arguments propagate as NULL instead of failing.
 SELECT UUID_V3(NULL, 'example.com') IS NULL AS v3_null_namespace;

@@ -99,7 +99,7 @@ The code follows the Google C++ Style Guide, with a few exceptions:
 - Bounds-check before every write into a result buffer. Do not assume `out.buffer()` is large enough; test `buffer().size()` first.
 - Check the null flag before touching any other field of an argument.
 - Nothing on the per-row path may allocate or make a syscall. The v1 node identifier is resolved once per process for exactly this reason — do not move that work back into the generator.
-- `out.warning(...)` does **not** produce a value. Use `out.error(...)` to fail a statement, or `out.set_null()` to return NULL.
+- Pick the failure mode by the kind of failure. `out.warning(...)` returns NULL for the row, adds a SQL warning, and lets the statement continue — this is the right choice for bad user input (a malformed `UUID_V3`/`UUID_V5` namespace). `out.error(...)` aborts the statement and is reserved for conditions that make it unsafe to continue (an RNG or digest failure, a result buffer the server sized too small, corrupt stored data). Note that in strict mode MySQL promotes a warning to an error on `INSERT`/`UPDATE`.
 - `.deterministic(true)` belongs only on pure functions — same input, same output. It gates whether a function may appear in generated columns and CHECK constraints. `UUID_V3`/`UUID_V5` qualify (they are hashes of their arguments) and are marked; the time- and random-based generators do not and must never be marked.
 
 ## Testing

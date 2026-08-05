@@ -197,14 +197,17 @@ noted otherwise.
 |---|---|---|
 | `UUID_V1()` | `uuid` | Never NULL. Errors if the system RNG fails. |
 | `UUID_V1MC()` | `uuid` | Never NULL. Errors if the system RNG fails. |
-| `UUID_V3(namespace, name)` | `uuid` | NULL if either argument is NULL. Errors if `namespace` is not a valid UUID string. Empty `name` is valid. |
+| `UUID_V3(namespace, name)` | `uuid` | NULL if either argument is NULL. NULL with a warning if `namespace` is not a valid UUID string — the statement continues. Empty `name` is valid. |
 | `UUID_V4()` | `uuid` | Never NULL. Errors if the system RNG fails. |
-| `UUID_V5(namespace, name)` | `uuid` | NULL if either argument is NULL. Errors if `namespace` is not a valid UUID string. Empty `name` is valid. |
+| `UUID_V5(namespace, name)` | `uuid` | NULL if either argument is NULL. NULL with a warning if `namespace` is not a valid UUID string — the statement continues. Empty `name` is valid. |
 | `UUID_V6()` | `uuid` | Never NULL. Errors if the system RNG fails. |
 | `UUID_V7()` | `uuid` | Never NULL. Errors if the system RNG fails. |
 
 `namespace` accepts any of the three textual forms below. `name` is hashed as
-raw bytes, so it is case- and encoding-sensitive.
+raw bytes, so it is case- and encoding-sensitive. A bad `namespace` is treated
+as bad input data rather than a fatal condition, so a `SELECT` over a mix of
+good and bad values still returns its good rows; note that in strict mode
+MySQL promotes such a warning to an error on `INSERT` and `UPDATE`.
 
 ### Constants
 

@@ -267,11 +267,8 @@ static bool multicast_node_id(unsigned char node[kNodeSize]) noexcept {
   return true;
 }
 
-// Handed out once per thread, never per row. Combining a random base with this
-// counter makes every thread's clock sequence both unpredictable and distinct
-// from every other thread's (for up to 16384 threads), which is what keeps two
-// threads from emitting the same v1/v6 UUID inside one clock tick. An atomic
-// increment is the narrowest possible synchronization for that guarantee.
+// Handed out once per thread, never per row. An atomic increment is the
+// narrowest possible synchronization for the guarantee below.
 static std::atomic<uint16_t> g_clock_seq_counter{0};
 
 struct ClockSeq {
@@ -279,14 +276,33 @@ struct ClockSeq {
   uint16_t value;
 };
 
-static const ClockSeq &thread_clock_seq() noexcept {
-  static thread_local const ClockSeq seq = [] {
+// The random starting point is drawn once for the whole process, so the atomic
+// counter is the only per-thread component of a clock sequence. That is what
+// makes every thread's sequence genuinely distinct from every other thread's
+// for the first 16384 threads, and distinctness is what keeps two threads from
+// emitting the same v1/v6 UUID inside one clock tick: the node ID is
+// process-wide, and next_uuid_timestamp's `last` is only thread-local, so the
+// clock sequence is the sole field separating two threads on the same tick.
+// Drawing the base per thread instead would reduce that guarantee to a
+// birthday problem over 16384 values — around a 1-in-3 chance of a colliding
+// pair at 100 connections.
+static const ClockSeq &process_clock_seq_base() noexcept {
+  static const ClockSeq base = [] {
     unsigned char bytes[2];
     if (!random_bytes(bytes, sizeof(bytes))) return ClockSeq{false, 0};
-    const uint16_t base = static_cast<uint16_t>((bytes[0] << 8) | bytes[1]);
+    return ClockSeq{true, static_cast<uint16_t>((bytes[0] << 8) | bytes[1])};
+  }();
+  return base;
+}
+
+static const ClockSeq &thread_clock_seq() noexcept {
+  static thread_local const ClockSeq seq = [] {
+    const ClockSeq &base = process_clock_seq_base();
+    if (!base.ok) return ClockSeq{false, 0};
     const uint16_t offset =
         g_clock_seq_counter.fetch_add(1, std::memory_order_relaxed);
-    return ClockSeq{true, static_cast<uint16_t>((base + offset) & 0x3FFF)};
+    return ClockSeq{true,
+                    static_cast<uint16_t>((base.value + offset) & 0x3FFF)};
   }();
   return seq;
 }
@@ -643,7 +659,9 @@ void uuid_generate_v3_impl(StringArg ns_arg, StringArg name_arg,
   }
   unsigned char namespace_binary[kUuidBinarySize];
   if (!parse_uuid_string(ns_arg.value(), namespace_binary)) {
-    out.error("UUID_V3: invalid namespace UUID format");
+    // Bad input data, not an unsafe condition: warning() returns NULL for the
+    // row and keeps the statement running, matching 0.0.5.
+    out.warning("UUID_V3: invalid namespace UUID format");
     return;
   }
   unsigned char binary_uuid[kUuidBinarySize];
@@ -676,7 +694,9 @@ void uuid_generate_v5_impl(StringArg ns_arg, StringArg name_arg,
   }
   unsigned char namespace_binary[kUuidBinarySize];
   if (!parse_uuid_string(ns_arg.value(), namespace_binary)) {
-    out.error("UUID_V5: invalid namespace UUID format");
+    // Bad input data, not an unsafe condition: warning() returns NULL for the
+    // row and keeps the statement running, matching 0.0.5.
+    out.warning("UUID_V5: invalid namespace UUID format");
     return;
   }
   unsigned char binary_uuid[kUuidBinarySize];

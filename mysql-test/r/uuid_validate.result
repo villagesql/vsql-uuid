@@ -61,12 +61,27 @@ INSERT INTO t_forms VALUES (4, 'not-a-uuid');
 ERROR HY000: Incorrect uuid value: 'not-a-uuid' for column 'u' at row 1
 DROP TABLE t_forms;
 #
-# A malformed namespace argument fails the statement
+# A malformed namespace argument yields NULL and a warning, not an error
 #
-SELECT UUID_V3('nope', 'example.com');
-ERROR HY000: VDF error in function 'UUID_V3': UUID_V3: invalid namespace UUID format
-SELECT UUID_V5('nope', 'example.com');
-ERROR HY000: VDF error in function 'UUID_V5': UUID_V5: invalid namespace UUID format
+SELECT UUID_V3('nope', 'example.com') IS NULL AS v3_bad_namespace;
+v3_bad_namespace
+1
+Warnings:
+Warning	3200	VDF error in function 'UUID_V3': UUID_V3: invalid namespace UUID format
+SELECT UUID_V5('nope', 'example.com') IS NULL AS v5_bad_namespace;
+v5_bad_namespace
+1
+Warnings:
+Warning	3200	VDF error in function 'UUID_V5': UUID_V5: invalid namespace UUID format
+CREATE TABLE t_ns (id INT PRIMARY KEY, ns VARCHAR(64));
+INSERT INTO t_ns VALUES (1, '6ba7b810-9dad-11d1-80b4-00c04fd430c8'), (2, 'nope');
+SELECT id, UUID_V5(ns, 'example.com') IS NULL AS is_null FROM t_ns ORDER BY id;
+id	is_null
+1	0
+2	1
+Warnings:
+Warning	3200	VDF error in function 'UUID_V5': UUID_V5: invalid namespace UUID format
+DROP TABLE t_ns;
 SELECT UUID_V3(NULL, 'example.com') IS NULL AS v3_null_namespace;
 v3_null_namespace
 1
