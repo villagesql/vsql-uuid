@@ -42,9 +42,14 @@
 
 # Build directories
 build/
+_docker_build/
 .cache/
 *.veb
+*.vef
 
 # Local AGENTS files
 AGENTS.local.md
+
+# Agent scratchpads
+.claude/
 
