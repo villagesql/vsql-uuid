@@ -19,6 +19,20 @@ versions 1, 3, 4, 5, 6, and 7 (RFC 9562).
 - **Sortable and indexable** — lexicographic comparison means `PRIMARY KEY`,
   `UNIQUE`, `ORDER BY`, `MIN`, and `MAX` all behave as expected
 
+## Installation
+
+If you installed VillageSQL with the install script, the Docker image, or a
+release tarball, `vsql_uuid.veb` is already in the server's `lib/veb/`
+directory — this extension is bundled with the server. There is nothing to build
+or download:
+
+```sql
+INSTALL EXTENSION vsql_uuid;
+```
+
+Build from source only if you built the server from source without the bundled
+extensions, or if you are working on this extension itself.
+
 ## Building
 
 **Prerequisites**
@@ -150,8 +164,10 @@ index inserts local, without disclosing a hardware address the way v1 does.
 
 ### Introspection
 
-The introspection functions take a `uuid` value — a column, or the result of a
-generation function — not a string.
+The introspection functions take a `uuid` value — a column, the result of a
+generation function, or a string literal, which is converted implicitly. An
+invalid string raises `ERROR 1525` rather than returning NULL, so these are not
+the tools for screening untrusted text; use `UUID_IS_VALID()` for that.
 
 ```sql
 SELECT UUID_VERSION(id) FROM users;        -- 1, 3, 4, 5, 6, or 7
@@ -266,9 +282,9 @@ collation — the JSON functions in particular — convert explicitly:
 SELECT JSON_OBJECT('ts', CONVERT(UUID_TIMESTAMP(u) USING utf8mb4)) FROM t;
 ```
 
-**Aggregates.** `COUNT`, `COUNT(DISTINCT)`, `MIN`, `MAX`, and `GROUP_CONCAT`
-work. `SUM` and `AVG` are rejected with `ERROR 1221`, as summing a UUID has no
-meaning.
+**Aggregates.** `COUNT(*)`, `COUNT(DISTINCT)`, `MIN`, `MAX`, and `GROUP_CONCAT`
+work. A bare `COUNT(col)` is rejected with `ERROR 1221`, as are `SUM` and `AVG`
+— summing a UUID has no meaning.
 
 **Defaults.** A `NOT NULL` `uuid` column with no explicit `DEFAULT` rejects an
 `INSERT` that omits it (`ERROR 1364`). Declare the default you want:
