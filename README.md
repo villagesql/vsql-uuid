@@ -275,12 +275,16 @@ SELECT u FROM t;                 -- correct
 SELECT CAST(u AS CHAR) FROM t;   -- ERROR 1221: Incorrect usage of cast_as_char and uuid
 ```
 
-To feed a UUID into a function that needs a character string with a declared
-collation — the JSON functions in particular — convert explicitly:
+On VillageSQL 0.0.6 and earlier, feed a UUID into a function that needs a
+character string with a declared collation — the JSON functions in
+particular — by converting explicitly:
 
 ```sql
 SELECT JSON_OBJECT('ts', CONVERT(UUID_TIMESTAMP(u) USING utf8mb4)) FROM t;
 ```
+
+VillageSQL 0.0.7 and later return the correct charset directly, so the
+`CONVERT` is no longer required there — but it is harmless to keep.
 
 **Aggregates.** `COUNT(*)`, `COUNT(DISTINCT)`, `MIN`, `MAX`, and `GROUP_CONCAT`
 work. A bare `COUNT(col)` is rejected with `ERROR 1221`, as are `SUM` and `AVG`
@@ -305,7 +309,7 @@ by this extension. Each notes what would remove the need for the workaround.
 |---|---|
 | **`CAST` does not work with `uuid`** in either direction (`ERROR 1221`). Custom types are not wired into MySQL's CAST grammar. | Select the column directly to get text; insert text into a `uuid` column to go the other way. Tracked as [villagesql-server#204](https://github.com/villagesql/villagesql-server/issues/204) — 👍 it if this affects you. |
 | **Upgrades need a server restart.** `ALTER EXTENSION <name> VERSION '<v>' AT RESTART` is the only upgrade form — `AT RESTART` is mandatory, so a new build never takes effect while the server is running. Separately, `UNINSTALL EXTENSION` is refused (`ERROR 3219`) while any column uses the `uuid` type. | Use `ALTER EXTENSION` and schedule a restart; dependent columns are preserved, so nothing needs dropping. Removed by [villagesql-server#697](https://github.com/villagesql/villagesql-server/issues/697), live upgrade without a restart. |
-| **STRING results need `CONVERT` for JSON.** `JSON_OBJECT('ts', UUID_TIMESTAMP(u))` yields `"base64:type15:..."`, though `CHARSET()` reports `utf8mb4`. | Wrap in `CONVERT(... USING utf8mb4)`. The client-display half of this was fixed upstream in #612; the JSON half is tracked as [villagesql-server#938](https://github.com/villagesql/villagesql-server/issues/938). Related: [#348](https://github.com/villagesql/villagesql-server/issues/348), charset support in the ABI. |
+| **STRING results need `CONVERT` for JSON on 0.0.6 and earlier.** `JSON_OBJECT('ts', UUID_TIMESTAMP(u))` yields `"base64:type15:..."` there, though `CHARSET()` reports `utf8mb4`. Fixed in VillageSQL 0.0.7. | On 0.0.6 and earlier, wrap in `CONVERT(... USING utf8mb4)`. Not needed on 0.0.7 and later. |
 | **No DATETIME return type** for extension functions, so `UUID_TIMESTAMP` returns text and truncates to whole seconds, discarding the sub-second precision v1/v6/v7 actually carry. | `CAST(UUID_TIMESTAMP(u) AS DATETIME)` for a temporal value; `UUID_EPOCH` for a number. Tracked as [villagesql-server#939](https://github.com/villagesql/villagesql-server/issues/939). |
 | **`SUM` and `AVG` are rejected** over a `uuid` column (`ERROR 1221`). | None needed — summing a UUID is meaningless. `COUNT`, `COUNT(DISTINCT)`, `MIN`, `MAX` and `GROUP_CONCAT` all work. Tracked as [villagesql-server#605](https://github.com/villagesql/villagesql-server/issues/605), opt-in numeric promotion. |
 | **No custom index access methods.** Index registration is available only as a preview API, which this extension does not use. | `PRIMARY KEY` and `UNIQUE` on a `uuid` column work and use the type's comparison function. Tracked as [#264](https://github.com/villagesql/villagesql-server/issues/264) (index type registration) and [#623](https://github.com/villagesql/villagesql-server/issues/623) (preview capabilities path to stability). |
