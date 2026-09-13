@@ -275,16 +275,20 @@ SELECT u FROM t;                 -- correct
 SELECT CAST(u AS CHAR) FROM t;   -- ERROR 1221: Incorrect usage of cast_as_char and uuid
 ```
 
-On VillageSQL 0.0.6 and earlier, feed a UUID into a function that needs a
-character string with a declared collation — the JSON functions in
-particular — by converting explicitly:
+**JSON functions.** On VillageSQL 0.0.6 and earlier, `UUID_TIMESTAMP` inside a
+JSON function gives you base64 instead of the timestamp. Wrap the call in
+`CONVERT`:
 
 ```sql
+SELECT JSON_OBJECT('ts', UUID_TIMESTAMP(u)) FROM t;
+-- {"ts": "base64:type15:MjAyNi0wOS0xMyAyMTozNTozNA=="}
+
 SELECT JSON_OBJECT('ts', CONVERT(UUID_TIMESTAMP(u) USING utf8mb4)) FROM t;
+-- {"ts": "2026-09-13 21:35:34"}
 ```
 
-VillageSQL 0.0.7 and later return the correct charset directly, so the
-`CONVERT` is no longer required there — but it is harmless to keep.
+The `UUID_NS_*` constants behave the same way. VillageSQL 0.0.7 and later does
+not need `CONVERT`.
 
 **Aggregates.** `COUNT(*)`, `COUNT(DISTINCT)`, `MIN`, `MAX`, and `GROUP_CONCAT`
 work. A bare `COUNT(col)` is rejected with `ERROR 1221`, as are `SUM` and `AVG`
