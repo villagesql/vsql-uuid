@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <cstring>
 #include <ctime>
+#include <functional>
 #include <string_view>
 
 // For getting MAC address
@@ -577,6 +578,19 @@ int uuid_compare(CustomArg a, CustomArg b) {
   return memcmp(sa.data(), sb.data(), kUuidBinarySize);
 }
 
+// Hash: delegates to std::hash over the raw binary UUID so two values that
+// compare equal via uuid_compare (byte-for-byte identical, per
+// persisted_length) always hash equal. Enables hash-join and hash-aggregate
+// plans on uuid columns; without it the server falls back to a plain scan
+// for those. std::hash cannot throw for std::string_view, so no handler is
+// needed.
+size_t uuid_hash(CustomArg a) {
+  auto s = a.value();
+  size_t len = s.size() < kUuidBinarySize ? s.size() : kUuidBinarySize;
+  return std::hash<std::string_view>{}(
+      std::string_view(reinterpret_cast<const char *>(s.data()), len));
+}
+
 // =============================================================================
 // VDF Implementations
 // =============================================================================
@@ -865,6 +879,7 @@ constexpr auto UUID =
         .from_string<&uuid_encode>()
         .to_string<&uuid_decode>()
         .compare<&uuid_compare>()
+        .hash<&uuid_hash>()
         .intrinsic_default_str("00000000-0000-0000-0000-000000000000")
         .build();
 
