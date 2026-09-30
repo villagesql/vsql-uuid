@@ -1,0 +1,45 @@
+# Setup: Copy VEB to veb_dir if VSQL_UUID_VEB is set, then install extension
+--let $veb_dest = `SELECT CONCAT(@@veb_dir, '/vsql_uuid.veb')`
+if ($VSQL_UUID_VEB) {
+  --error 0,1
+  --remove_file $veb_dest
+  --copy_file $VSQL_UUID_VEB $veb_dest
+}
+INSTALL EXTENSION vsql_uuid;
+
+--echo #
+--echo # Test UUID hash-based operations (GROUP BY / DISTINCT / hash join)
+--echo #
+--echo # Registering .hash<>() on the uuid type lets the optimizer choose a
+--echo # hash-based plan for these; two UUIDs that compare equal via
+--echo # UUID_COMPARE must also hash equal, or GROUP BY / COUNT(DISTINCT)
+--echo # would silently give wrong answers under a hash plan.
+
+CREATE TABLE vsql_test_hash (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  u UUID
+);
+
+INSERT INTO vsql_test_hash (u) VALUES
+  ('550e8400-e29b-41d4-a716-446655440000'),
+  ('550e8400-e29b-41d4-a716-446655440000'),
+  ('550E8400-E29B-41D4-A716-446655440000'),
+  ('6ba7b810-9dad-11d1-80b4-00c04fd430c8'),
+  ('00000000-0000-0000-0000-000000000000'),
+  ('ffffffff-ffff-ffff-ffff-ffffffffffff'),
+  ('ffffffff-ffff-ffff-ffff-ffffffffffff');
+
+# Four distinct UUID values inserted 7 times total: the first value appears
+# three times (one exact duplicate, one case-variant duplicate -- UUID
+# comparison and hashing are both case-insensitive), and the last value
+# appears twice.
+SELECT COUNT(DISTINCT u) AS distinct_count FROM vsql_test_hash;
+
+SELECT u, COUNT(*) AS n
+FROM vsql_test_hash
+GROUP BY u
+ORDER BY n DESC, u;
+
+DROP TABLE vsql_test_hash;
+
+UNINSTALL EXTENSION vsql_uuid;
