@@ -539,7 +539,9 @@ void uuid_encode(std::string_view from, CustomResult out) try {
     return;
   }
   if (!parse_uuid_string(from, buf.data())) {
-    out.error("invalid UUID format");
+    // A bad value, not a failure: warning() gets the standard 1366 handling,
+    // which strict mode promotes to an error. error() would always abort.
+    out.warning("invalid UUID format");
     return;
   }
   out.set_length(kUuidBinarySize);
