@@ -69,6 +69,13 @@ static constexpr size_t kUuidBinarySize = 16;
 // length, not an upper bound.
 static constexpr size_t kUuidStringLength = 36;
 
+// Length of uuid_timestamp_impl's "%Y-%m-%d %H:%M:%S" output: 4+1+2+1+2 (date)
+// + 1 + 2+1+2+1+2 (time) = 19 characters. Also an exact length: strftime
+// either produces exactly this (into the function's 20-byte stack buffer,
+// below) or fails and the function returns NULL, so this is never a lower
+// bound on the real output either.
+static constexpr size_t kUuidTimestampStringLength = 19;
+
 // The three accepted textual input lengths.
 static constexpr size_t kBareLength = kUuidBinarySize * 2;   // 32
 static constexpr size_t kBracedLength = kUuidStringLength + 2;  // 38
@@ -523,6 +530,7 @@ using uuid_funcs::kNamespaceUrl;
 using uuid_funcs::kNamespaceX500;
 using uuid_funcs::kUuidBinarySize;
 using uuid_funcs::kUuidStringLength;
+using uuid_funcs::kUuidTimestampStringLength;
 using uuid_funcs::NodeSource;
 using uuid_funcs::parse_uuid_string;
 using uuid_funcs::uuid_version_of;
@@ -830,7 +838,7 @@ void uuid_timestamp_impl(CustomArg arg, StringResult out) try {
     out.set_null();
     return;
   }
-  char buf[20];
+  char buf[kUuidTimestampStringLength + 1];
   const size_t len = strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &tm_buf);
   if (len == 0) {
     out.set_null();
@@ -951,6 +959,13 @@ VEF_GENERATE_ENTRY_POINTS(
 
         .func(make_func<&uuid_ns_dns_impl>("UUID_NS_DNS")
                   .returns(STRING)
+                  // Always exactly kUuidStringLength bytes (set_namespace_result
+                  // always calls set_length(kUuidStringLength)), so a
+                  // materialized result (CREATE TABLE AS SELECT, a view, a
+                  // temp table) needs exactly this much column width -- not
+                  // the pre-max_result_length default of 0 a zero-argument
+                  // STRING-returning VDF otherwise falls back to.
+                  .max_result_length(kUuidStringLength)
                   .no_params()
                   .buffer_size(kUuidStringLength + 1)
                   .deterministic(true)
@@ -958,6 +973,7 @@ VEF_GENERATE_ENTRY_POINTS(
 
         .func(make_func<&uuid_ns_url_impl>("UUID_NS_URL")
                   .returns(STRING)
+                  .max_result_length(kUuidStringLength)
                   .no_params()
                   .buffer_size(kUuidStringLength + 1)
                   .deterministic(true)
@@ -965,6 +981,7 @@ VEF_GENERATE_ENTRY_POINTS(
 
         .func(make_func<&uuid_ns_oid_impl>("UUID_NS_OID")
                   .returns(STRING)
+                  .max_result_length(kUuidStringLength)
                   .no_params()
                   .buffer_size(kUuidStringLength + 1)
                   .deterministic(true)
@@ -972,6 +989,7 @@ VEF_GENERATE_ENTRY_POINTS(
 
         .func(make_func<&uuid_ns_x500_impl>("UUID_NS_X500")
                   .returns(STRING)
+                  .max_result_length(kUuidStringLength)
                   .no_params()
                   .buffer_size(kUuidStringLength + 1)
                   .deterministic(true)
@@ -998,8 +1016,14 @@ VEF_GENERATE_ENTRY_POINTS(
 
         .func(make_func<&uuid_timestamp_impl>("UUID_TIMESTAMP")
                   .returns(STRING)
+                  // Always exactly kUuidTimestampStringLength bytes or NULL
+                  // (see uuid_timestamp_impl / kUuidTimestampStringLength),
+                  // so a materialized result needs exactly this much column
+                  // width -- not the pre-max_result_length default of the
+                  // UUID argument's own (unrelated) width.
+                  .max_result_length(kUuidTimestampStringLength)
                   .param(UUID)
-                  .buffer_size(20)
+                  .buffer_size(kUuidTimestampStringLength + 1)
                   .deterministic(true)
                   .build())
 

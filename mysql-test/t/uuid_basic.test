@@ -63,6 +63,20 @@ ORDER BY id;
 SELECT UUID_TIMESTAMP(NULL) IS NULL AS timestamp_null;
 
 --echo #
+--echo # UUID_TIMESTAMP materialized (CREATE TABLE AS SELECT) used to fail:
+--echo # with no .max_result_length() declared, a STRING-returning VDF falls
+--echo # back to its argument's own width for the materialized column, and a
+--echo # uuid-typed argument's width has nothing to do with the 19-character
+--echo # "YYYY-MM-DD HH:MM:SS" string UUID_TIMESTAMP actually produces.
+--echo #
+
+CREATE TABLE t_ts_materialized AS
+  SELECT UUID_TIMESTAMP(uuid_val) AS ts FROM t_known WHERE id = 1;
+SHOW CREATE TABLE t_ts_materialized;
+SELECT ts, LENGTH(ts) FROM t_ts_materialized;
+DROP TABLE t_ts_materialized;
+
+--echo #
 --echo # Test UUID_EPOCH function
 --echo #
 

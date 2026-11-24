@@ -56,6 +56,23 @@ SELECT UUID_COMPARE(UUID_MAX(), UUID_V4()) AS max_is_highest;
 max_is_highest
 1
 #
+# UUID_NS_DNS() materialized (CREATE TABLE AS SELECT) used to fail:
+# with no .max_result_length() declared, a zero-argument STRING-
+# returning VDF falls back to a materialized column width of 0 (there
+# are no arguments to size it from), even though the function always
+# returns the fixed 36-character namespace UUID string.
+#
+CREATE TABLE t_ns_materialized AS SELECT UUID_NS_DNS() AS ns;
+SHOW CREATE TABLE t_ns_materialized;
+Table	Create Table
+t_ns_materialized	CREATE TABLE `t_ns_materialized` (
+  `ns` varchar(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT ns, LENGTH(ns) FROM t_ns_materialized;
+ns	LENGTH(ns)
+6ba7b810-9dad-11d1-80b4-00c04fd430c8	36
+DROP TABLE t_ns_materialized;
+#
 # Cleanup
 #
 UNINSTALL EXTENSION vsql_uuid;

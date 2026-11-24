@@ -48,6 +48,19 @@ SELECT UUID_COMPARE(UUID_NIL(), UUID_V4()) AS nil_is_lowest;
 SELECT UUID_COMPARE(UUID_MAX(), UUID_V4()) AS max_is_highest;
 
 --echo #
+--echo # UUID_NS_DNS() materialized (CREATE TABLE AS SELECT) used to fail:
+--echo # with no .max_result_length() declared, a zero-argument STRING-
+--echo # returning VDF falls back to a materialized column width of 0 (there
+--echo # are no arguments to size it from), even though the function always
+--echo # returns the fixed 36-character namespace UUID string.
+--echo #
+
+CREATE TABLE t_ns_materialized AS SELECT UUID_NS_DNS() AS ns;
+SHOW CREATE TABLE t_ns_materialized;
+SELECT ns, LENGTH(ns) FROM t_ns_materialized;
+DROP TABLE t_ns_materialized;
+
+--echo #
 --echo # Cleanup
 --echo #
 
