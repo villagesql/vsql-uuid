@@ -64,6 +64,24 @@ SELECT UUID_TIMESTAMP(NULL) IS NULL AS timestamp_null;
 timestamp_null
 1
 #
+# UUID_TIMESTAMP materialized (CREATE TABLE AS SELECT) used to fail:
+# with no .max_result_length() declared, a STRING-returning VDF falls
+# back to its argument's own width for the materialized column, and a
+# uuid-typed argument's width has nothing to do with the 19-character
+# "YYYY-MM-DD HH:MM:SS" string UUID_TIMESTAMP actually produces.
+#
+CREATE TABLE t_ts_materialized AS
+SELECT UUID_TIMESTAMP(uuid_val) AS ts FROM t_known WHERE id = 1;
+SHOW CREATE TABLE t_ts_materialized;
+Table	Create Table
+t_ts_materialized	CREATE TABLE `t_ts_materialized` (
+  `ts` varchar(19) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci
+SELECT ts, LENGTH(ts) FROM t_ts_materialized;
+ts	LENGTH(ts)
+1998-02-04 22:13:53	19
+DROP TABLE t_ts_materialized;
+#
 # Test UUID_EPOCH function
 #
 SELECT UUID_EPOCH(uuid_val) AS epoch, label

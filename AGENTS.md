@@ -31,7 +31,7 @@ The build process:
 **Installing into a running server:** `veb_output_directory` is not necessarily the directory the server reads. Query the server for its `veb_dir` and copy the VEB there before `INSTALL EXTENSION vsql_uuid;`. See `TESTING.md`.
 
 **Requirements:**
-- VillageSQL build tree (specified via `VillageSQL_BUILD_DIR`)
+- VillageSQL build tree, 0.0.8 or newer (specified via `VillageSQL_BUILD_DIR`); the extension requires protocol 5, which 0.0.8 introduced
 - OpenSSL development libraries
 - C++17 compiler, CMake 3.18+
 
