@@ -7,7 +7,7 @@ The test suite uses the MySQL Test Runner (MTR). Every expected-output file in
 
 | Requirement | Notes |
 |---|---|
-| VillageSQL build tree | Provides the Extension SDK, `mysqld`, and `mysql-test/` |
+| VillageSQL build tree, 0.0.8 or newer | Provides the Extension SDK, `mysqld`, and `mysql-test/`. The extension requires protocol 5, which 0.0.8 introduced |
 | `VillageSQL_BUILD_DIR` | Environment variable pointing at that build tree |
 | OpenSSL headers/libraries | Used for MD5, SHA-1, and secure random bytes |
 | C++17 compiler, CMake 3.18+ | |

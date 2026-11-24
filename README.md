@@ -37,7 +37,8 @@ extensions, or if you are working on this extension itself.
 
 **Prerequisites**
 
-- VillageSQL build tree (specified via `VillageSQL_BUILD_DIR`)
+- VillageSQL build tree, 0.0.8 or newer (specified via `VillageSQL_BUILD_DIR`).
+  The extension requires protocol 5, which 0.0.8 introduced
 - CMake 3.18 or higher
 - C++17 compatible compiler
 - OpenSSL development libraries (MD5 and SHA-1 for v3/v5, secure random bytes
